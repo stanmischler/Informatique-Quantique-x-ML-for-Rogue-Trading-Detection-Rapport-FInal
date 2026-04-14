@@ -16,23 +16,182 @@
 \maketitle
 \tableofcontents
 
+\newpage
+
 \section{Introduction}
 
 \subsection{Motivation générale}
 
+La détection de comportements frauduleux dans les systèmes financiers constitue un enjeu majeur pour les institutions bancaires et les autorités de régulation. Parmi ces comportements, le \textit{rogue trading}, défini comme l’exécution d’opérations non autorisées ou dissimulées par un trader, représente un risque particulièrement critique en raison de son impact potentiellement systémique.
+
+Ces dernières décennies, plusieurs scandales financiers ont mis en évidence les limites des systèmes de contrôle traditionnels, souvent incapables de détecter à temps des stratégies frauduleuses complexes. La difficulté principale réside dans la nature même de ces anomalies : elles sont rares, évolutives, et s’inscrivent dans des environnements de données à haute dimension caractérisés par des interactions non linéaires.
+
+Les méthodes classiques de détection de fraude reposent généralement sur des approches statistiques ou des modèles de machine learning supervisé et non supervisé. Bien que ces techniques soient efficaces dans certains contextes, elles présentent des limites face à la complexité croissante des systèmes financiers modernes. En particulier, elles peinent à capturer des dépendances complexes entre variables ainsi que des structures de données riches et dynamiques.
+
+Dans ce contexte, l’émergence du \textit{machine learning quantique} offre de nouvelles perspectives. En exploitant les propriétés de la mécanique quantique, notamment la superposition et l’intrication, ces approches permettent de projeter les données dans des espaces de Hilbert de grande dimension. Cela ouvre la voie à des représentations potentiellement plus expressives, capables de mieux distinguer des comportements normaux et anormaux.
+
+L’objectif de ce projet est d’explorer l’utilisation de ces méthodes quantiques pour la détection de scénarios de \textit{rogue trading}. Nous cherchons en particulier à évaluer dans quelle mesure les modèles quantiques hybrides peuvent améliorer les performances de détection par rapport aux approches classiques.
+
 \subsection{État de l'art}
+
+La détection d’anomalies dans les systèmes financiers a fait l’objet de nombreux travaux en machine learning. Les approches traditionnelles incluent des méthodes supervisées telles que la régression logistique, les forêts aléatoires ou encore les réseaux de neurones, ainsi que des méthodes non supervisées comme l’Isolation Forest ou les autoencodeurs. Ces modèles reposent principalement sur l’analyse de données tabulaires et visent à identifier des observations atypiques à partir de leurs caractéristiques statistiques.
+
+Plus récemment, des approches basées sur des représentations plus complexes ont émergé, notamment dans le cadre de données structurées ou relationnelles. Ces méthodes permettent de capturer des interactions entre entités, mais restent limitées par leur capacité à modéliser des dépendances de très haute dimension.
+
+En parallèle, le domaine du \textit{machine learning quantique} a connu un développement rapide ces dernières années. Les modèles hybrides quantiques-classiques, tels que les circuits quantiques variationnels (Variational Quantum Circuits, VQC), constituent aujourd’hui une approche privilégiée en raison de leur compatibilité avec les dispositifs quantiques actuels (régime NISQ). Ces modèles permettent de transformer des données classiques en états quantiques via des techniques d’encodage (par exemple l’angle encoding), puis d’appliquer des transformations paramétrées afin d’extraire des représentations pertinentes.
+
+Plusieurs travaux ont montré que ces approches peuvent offrir un avantage dans certaines tâches de classification ou de détection d’anomalies, notamment en raison de leur capacité à exploiter des espaces de représentation exponentiellement grands. Toutefois, ces résultats restent encore exploratoires et dépendent fortement du choix de l’architecture quantique et de la nature des données.
+
+Dans ce contexte, l’application du machine learning quantique à la détection de fraude financière, et en particulier au \textit{rogue trading}, constitue un domaine de recherche encore émergent. Ce projet s’inscrit dans cette dynamique en proposant d’évaluer expérimentalement l’apport de modèles quantiques hybrides sur un problème de détection d’anomalies.
 
 \section{Présentation du projet}
 
+
+Ce projet s’inscrit dans le cadre d’une collaboration avec BNP Paribas, qui a proposé un cas d’étude portant sur la détection de scénarios de \textit{rogue trading} à l’aide de techniques de machine learning quantique. L’objectif est d’évaluer dans quelle mesure des approches quantiques hybrides peuvent améliorer la détection d’anomalies par rapport aux méthodes classiques.
+
+Ce travail s’inscrit également dans la continuité d’un projet réalisé l’année précédente dans le cadre du PSC par un groupe d’élèves de la promotion X23. Ces travaux ont permis d’explorer plusieurs pistes prometteuses en machine learning quantique appliqué à la détection de fraude, notamment :
+\begin{itemize}
+    \item le clustering quantique variationnel,
+    \item le clustering spectral,
+    \item des approches de détection d’anomalies basées sur des modèles quantiques.
+\end{itemize}
+
+Ces contributions ont mis en évidence le potentiel des méthodes quantiques pour traiter des données financières complexes, tout en soulignant certaines limites liées aux contraintes matérielles et à la structuration des données.
+
+Dans ce contexte, le présent projet vise à prolonger et approfondir ces travaux en proposant une approche plus intégrée, combinant preprocessing avancé, modèles classiques et modèles quantiques hybrides, appliqués à des données de trading réelles.
+
+Pour cela, nous adoptons une démarche expérimentale structurée autour de plusieurs étapes : la mise en place de baselines classiques, l’implémentation de modèles quantiques variationnels, puis la comparaison de leurs performances sur des données de trading.
+
 \subsection{Méthode générale}
+
+
 
 \subsection{Données utilisées}
 
-\section{Données de la BNP}
+Nous disposns principalement d'un jeu de données fourni par BNP Paribas, constitué d’environ 500\,000 transactions (\textit{trades}), non labelisées,  sur une période donnée. Ces données sont issues de l’enregistrement d’événements liés à l’activité de trading.
+
+Contrairement à des jeux de données déjà agrégés, les informations disponibles sont principalement sous forme d’événements bruts. Chaque entrée correspond à une action élémentaire (ordre, modification, exécution, etc.) et contient un ensemble de variables descriptives telles que :
+\begin{itemize}
+    \item des identifiants d’ordres ou de transactions,
+    \item des informations temporelles (timestamps),
+    \item des caractéristiques liées aux ordres (type, direction, quantité, prix),
+    \item des métadonnées associées aux événements.
+\end{itemize}
+
+Ainsi, les variables d’intérêt telles que les moyennes, variances ou fréquences d’ordres ne sont pas directement disponibles et doivent être reconstruites à partir des données brutes. Cette étape de transformation constitue un enjeu central du projet, car elle conditionne la qualité des représentations utilisées par les modèles.
+
+En complément, des données synthétiques sont générées afin de simuler des scénarios de \textit{rogue trading}. Ces simulations permettent d’introduire des anomalies contrôlées, telles que :
+\begin{itemize}
+    \item des comportements atypiques en termes de volume ou de fréquence,
+    \item des irrégularités temporelles,
+    \item des patterns anormaux difficilement détectables par des méthodes classiques.
+\end{itemize}
+
+Cette combinaison de données réelles et synthétiques permet à la fois de tester les modèles dans un cadre réaliste et d’évaluer précisément leur capacité à détecter des anomalies connues.
+
 
 
 \section{Techniques de preprocessing}
 
+ Avant de pouvoir appliquer des méthodes de machine learning, qu’elles soient classiques ou quantiques, il est nécessaire de transformer les données brutes en représentations structurées et exploitables. Cette étape de \textit{preprocessing} constitue un élément central du projet.
+
+\subsection{Nature des données et enjeux}
+
+Le jeu de données est constitué d’enregistrements d’événements associés à des transactions financières (ordres, exécutions, modifications, etc.). Chaque entrée contient des informations hétérogènes, notamment des identifiants, des timestamps, ainsi que des variables décrivant les caractéristiques des ordres.
+
+Contrairement à des données tabulaires classiques, ces informations ne sont pas directement exploitables pour des tâches de classification ou de détection d’anomalies. En particulier, les variables agrégées telles que les moyennes, les variances ou les fréquences d’activité ne sont pas disponibles et doivent être reconstruites à partir des données brutes.
+
+Le principal enjeu du preprocessing est donc de :
+\begin{itemize}
+    \item structurer les données,
+    \item extraire des variables pertinentes,
+    \item capturer les dynamiques comportementales,
+    \item préparer les données pour les modèles classiques et quantiques.
+\end{itemize}
+
+\subsection{Nettoyage des données}
+
+Une première étape consiste à nettoyer les données afin d’éliminer les incohérences et les valeurs inutilisables.
+
+Les opérations effectuées incluent :
+\begin{itemize}
+    \item la suppression des entrées incomplètes ou corrompues,
+    \item la gestion des valeurs manquantes,
+    \item la conversion des variables dans des formats cohérents, notamment les timestamps.
+\end{itemize}
+
+\subsection{Agrégation hybride : utilisateur et temporelle}
+
+Afin de capturer efficacement les comportements de \textit{rogue trading}, nous adoptons une stratégie d’agrégation hybride combinant une approche centrée sur les utilisateurs et une approche temporelle.
+
+\paragraph{Agrégation par utilisateur}
+
+Dans un premier temps, les données sont regroupées par entité (trader ou compte). Cette agrégation permet de construire un profil global de chaque acteur, caractérisé par :
+\begin{itemize}
+    \item le volume total échangé,
+    \item la moyenne et la variance des prix,
+    \item la distribution des types d’ordres,
+    \item des indicateurs d’activité globale.
+\end{itemize}
+
+Cette représentation permet de capturer les comportements structurels et persistants.
+
+\paragraph{Agrégation temporelle}
+
+Dans un second temps, les événements sont regroupés sur des fenêtres temporelles afin de capturer la dynamique de l’activité.
+
+Pour chaque fenêtre, on calcule notamment :
+\begin{itemize}
+    \item le nombre d’événements,
+    \item les volumes échangés,
+    \item les variations de prix,
+    \item des indicateurs de volatilité.
+\end{itemize}
+
+Cette approche permet d’identifier des anomalies locales, telles que des pics d’activité ou des changements brusques de comportement.
+
+\paragraph{Fusion des représentations}
+
+Les deux types d’agrégation sont ensuite combinés afin de former une représentation enrichie :
+
+\[
+x = [x_{\text{user}} \; || \; x_{\text{temporel}}]
+\]
+
+Cette fusion permet de capturer à la fois les comportements globaux des traders et les dynamiques locales, ce qui est particulièrement pertinent dans le cadre du \textit{rogue trading}, où les anomalies résultent souvent d’une rupture dans un comportement habituel.
+
+\subsection{Feature engineering}
+
+À partir des données agrégées, des variables supplémentaires sont construites afin d’améliorer la capacité des modèles à détecter des anomalies.
+
+Parmi les transformations réalisées :
+\begin{itemize}
+    \item calcul de ratios (par exemple volume relatif par rapport à une moyenne),
+    \item dérivées temporelles (variation entre deux fenêtres successives),
+    \item détection de pics d’activité,
+    \item indicateurs de dispersion (variance, écart-type),
+    \item mesures de stabilité ou d’irrégularité du comportement.
+\end{itemize}
+
+Ces variables permettent de mieux caractériser les écarts par rapport à un comportement normal.
+
+\subsection{Encodage et normalisation}
+
+Les variables catégorielles sont encodées à l’aide de techniques adaptées (par exemple encodage one-hot). Les variables numériques sont ensuite normalisées afin de garantir une échelle cohérente.
+
+En particulier, les données sont ramenées dans des intervalles bornés (par exemple $[-1,1]$), ce qui est essentiel pour leur utilisation dans des modèles quantiques.
+
+\subsection{Réduction de dimension}
+
+Afin de limiter la complexité des modèles, une réduction de dimension est appliquée, notamment via l’Analyse en Composantes Principales (PCA). Cette étape est particulièrement importante dans le contexte du machine learning quantique, où le nombre de qubits disponibles est limité.
+
+\subsection{Lien avec les modèles quantiques}
+
+La structure hybride issue de l’agrégation utilisateur et temporelle prend une dimension particulière dans le cadre du machine learning quantique.
+
+En effet, les données peuvent être interprétées comme des objets multidimensionnels structurés, naturellement représentables sous forme de tenseurs. Cette représentation est particulièrement adaptée aux systèmes quantiques, où les états sont eux-mêmes décrits dans des espaces tensoriels (espaces de Hilbert composés).
+
+Ainsi, la combinaison des informations utilisateur et temporelles peut être encodée dans un espace quantique via des produits tensoriels, permettant de capturer des corrélations complexes entre ces différentes dimensions. Cette propriété ouvre la voie à des représentations plus expressives, susceptibles d’améliorer la détection de comportements anormaux.
 
 \section{Clustering}
 
@@ -65,5 +224,7 @@
 
 \begin{thebibliography}{}
 \end{thebibliography}
+
+\end{document}
 
 \end{document}
