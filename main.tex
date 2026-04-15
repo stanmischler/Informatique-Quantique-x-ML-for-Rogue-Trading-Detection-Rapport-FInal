@@ -211,10 +211,45 @@ Ainsi, la combinaison des informations utilisateur et temporelles peut être enc
 \subsection{Résultats}
 
 
+\section{Tests et Comparaisons}
+
+Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline en testant 4 modèles différents. Dans un second temps nous évaluons le troisième algorithme, celui de notre pipeline sur le jeu de données de la BNP. 
+
+
+
+
+\subsection{Comparaison de 4 algorithmes sur un dataset tiers}
+
+\begin{enumerate}
+    \item Algorithme classique superivsé : Preprocessing + Random Forest (ou Tancrède)
+    \item Algorithme quantique non superivsé : OCQSVM
+    \item Algorithme hybride autosupervisé : OCQSVM + Random Forest 
+    \item Algorithme quantique superivsé : Preprocessing + QSVM
+\end{enumerate}
+Voici les résultats sur le dataset : 
+
+\subsection{Application au jeu de données de la BNP}
+
+Pour évaluer notre pipeline directement sur le jeu de données de la BNP nous ne disposons malheuresemnt d'aucun label. Ainsi nous avons opté sur deux approches. Premièrement nous pouvons calculer le coefficient de silhouette de notre résultat. Ce coefficient est très répandu dans la littérature pour l'évaluation d'agorithmes non supervisés. 
+
+Le coefficient de silhouette est la moyenne des scores $s_i$ calculés en chaque point. On définit la séparation externe $b_i$ qui est la distance moyenne entre le point $i$ et tous les points du cluster voisin le plus proche ainsi que la cohésion interne $a_i$ qui est la distance moyenne entre le point i et tous les autres points situés dans le même cluster. 
+
+$$s_i = \frac{b_i - a_i}{\max(a_i, b_i)}$$
+
+A noter que chaque $s_i$ et donc le coefficient de silhouette sont dans l'intervalle $[0, 1]$. Le coefficient de silhouette est une métrique de validation qui permet de mesurer la qualité d’une partition de données en évaluant la cohérence de chaque point par rapport à son propre groupe (le cluster) face aux autres. Voir \cite{Rousseeuw1987} et \cite{Shahapure2020} pour plus de précisions sur le coefficient de silhouette et sa pertinence. 
+
+Voici le coefficient de silhouette que nous avons obtenu sur un échantillon de taille .... du jeu de données de la BNP + commentaires
+
+Ensuite nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme. Nous avons inspecté leurs features et il est aisé d'observer que cette échantillon est anormal dans une certaine mesure. Voici quelques exemples qui étaillent notre propos :
+
+
 \section{Difficultés et critique}
 
 \subsection{Limites matérielles}
 
+\subsection{Absence de labels dans le jeu de données de la BNP}
+
+L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le jeu de données de la BNP. D'autant qu'un effort a été porté tout le long de l'année pour respecter les contraintes spécifiques de ce dernier. Comme expliqué dans l'introduction le jeu de données de la BNP qui a été fourni à notre groupe de PSC n'est pas labellisé. Cela pose bien sûr un problème pour l'entrainement d'un modèle car beaucoup sont basés sur l'apprentissage statistique des labels. Nous avons vu qu'il était possible de contourner cet obstacle par l'utilisation de modèles auto-supervisés c'est à dire en créant eux mêmes des "faux" labels pour faire de l'apprentissage sur ces derniers par la suite. De plus les labels servent également à évaluer un modèle. Ainsi un vrai casse tête fut de savoir comment évaluer la performance de nos modèles sur le jeu de données de la BNP. Nous avons finalement opter pour une double approche : calculer le coefficient de silhouette et analyser à la main les données catégorisées comme frauduleuses.
 
 \section{Conclusion et idées futures}
 
@@ -223,6 +258,25 @@ Ainsi, la combinaison des informations utilisateur et temporelles peut être enc
 \subsection{Idées futures}
 
 \begin{thebibliography}{}
+
+\bibitem{Rousseeuw1987}
+Peter J. Rousseeuw 1987. Silhouettes: A graphical aid to the interpretation and validation of cluster analysis. \textit{Journal of Computational and Applied Mathematics}, vol. 20, pp. 53-65.
+\bibitem{Shahapure2020}
+K. R. Shahapure and C. Nicholas 2020. Cluster Quality Analysis Using Silhouette Score. In \textit{2020 IEEE International Conference on Big Data (Big Data)}, pp. 5299-5308. arXiv:2008.08226.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \end{thebibliography}
 
 \end{document}
