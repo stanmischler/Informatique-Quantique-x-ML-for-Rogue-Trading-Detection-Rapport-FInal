@@ -86,7 +86,7 @@ Nous avons travaillé sur deux jeux de données complémentaires. Le premier, fo
 \section{Techniques de preprocessing}
 
 
-\section{Clustering}\label{sec:clustering}
+\section{Algorithmes non supervisés}\label{sec:clustering}
 
 \subsection{Clustering classique}
 
@@ -193,25 +193,24 @@ Le nombre $n$ de qubits dédiés à l'encodage joue un rôle crucial, mis empiri
 
 La complexité par itération de l'optimiseur est en $\mathcal{O}(N k \cdot P)$ exécutions élémentaires du circuit SWAP test, où $N$ est le nombre de points, $k$ le nombre de clusters, et $P$ le nombre de répétitions utilisées pour estimer chaque fidélité.
 
-\subsection{Implémentation}
 
 
 \subsection{Rappels théoriques : SVM classique et astuce du noyau}
 \label{subsec:svm-classique}
 
-Avant d'aborder la formulation quantique, il est indispensable de poser le cadre mathématique du \emph{Support Vector Machine} (SVM) classique, car l'approche quantique vient s'y greffer directement sans en altérer la logique d'optimisation.
+Avant d'aborder sa variante quantique, il est indispensable de poser le cadre mathématique du Support Vector Machine (SVM) classique, car l'approche quantique vient s'y greffer directement sans en altérer la logique d'optimisation. 
 
 À l'origine, le SVM est un modèle de classification binaire cherchant à séparer linéairement des données réparties en deux classes \cite{cortes1995svm}. L'idée directrice n'est pas seulement de trouver un hyperplan séparateur d'équation $\vec{w} \cdot \vec{x} + b = 0$, mais de trouver celui qui maximise la marge, c'est-à-dire la distance entre l'hyperplan et les points les plus proches de chaque classe.
 
 \subsubsection*{Le problème primal et la marge souple}
 
-Mathématiquement, maximiser cette marge revient à minimiser la norme du vecteur normal à l'hyperplan, $\|\vec{w}\|$. Or, dans le cas de données réelles (et a fortiori dans la détection de fraude), les classes se chevauchent souvent à cause du bruit. Il est donc impossible de tracer une frontière parfaite. Pour y remédier, nous introduisons des variables de relâchement $\xi_i \geq 0$ (\emph{slack variables}) qui autorisent certaines erreurs de classification moyennant une pénalité. 
+Mathématiquement, maximiser cette marge revient à minimiser la norme du vecteur normal à l'hyperplan, $\|\vec{w}\|$. Or, dans le cas de données réelles (et a fortiori dans la détection de fraude), les classes se chevauchent souvent à cause du bruit. Il est donc impossible de tracer une frontière parfaite. Pour y remédier, nous introduisons des variables réelles $\xi_i \geq 0$  qui autorisent certaines erreurs de classification moyennant une pénalité. 
 
 Le problème d'optimisation, dit « primal », s'écrit alors :
 \[
 \min_{\vec{w}, b, \vec{\xi}} \;\frac{1}{2} \|\vec{w}\|^2 + C \sum_{i=1}^{N} \xi_i
 \]
-sous les contraintes $y_i(\vec{w} \cdot \vec{x}_i + b) \geq 1 - \xi_i$. Le paramètre de régularisation $C$ contrôle le compromis entre la largeur de la marge (généralisation) et la pénalisation des erreurs sur le jeu d'entraînement.
+sous les contraintes $y_i(\vec{w} \cdot \vec{x}_i + b) \geq 1 - \xi_i$. Le paramètre de régularisation $C$ contrôle le compromis entre la largeur de la marge (généralisation) et la pénalisation des erreurs sur le jeu d'entraînement. $y_i \in$ {$-1, 1$} est le label de du point $x_i$. $y_i(\vec{w} \cdot \vec{x}_i + b)$ est censé être supérieur ou égal à $1$, ainsi $\xi_i$ est la variable de pénalisation de cette contrainte qu'on se permet d'assouplir. 
 
 \subsubsection*{Passage au problème dual}
 
@@ -226,25 +225,38 @@ sous les contraintes $0 \leq \alpha_i \leq C$ et $\sum_{i} \alpha_i y_i = 0$.
 Ce problème présente deux propriétés fondamentales pour la suite de notre architecture :
 \begin{enumerate}
     \item \textbf{Parcimonie des solutions :} La majorité des multiplicateurs $\alpha_i$ s'annulent. Seuls les points d'entraînement situés sur la bordure de la marge ou du mauvais côté auront un $\alpha_i > 0$. Ces points critiques sont appelés les \emph{vecteurs de support}. La frontière de décision finale ne dépend plus que d'eux.
-    \item \textbf{Dépendance exclusive au produit scalaires :} Les vecteurs de données $\vec{x}$ n'apparaissent dans la fonction à optimiser que sous la forme de produits scalaires $(\vec{x}_i \cdot \vec{x}_j)$, ce qui ouvre la porte à l'astuce du noyau.
+    \item \textbf{Dépendance exclusive au produit scalaires :} Les vecteurs de données $\vec{x}$ n'apparaissent dans la fonction à optimiser que sous la forme de produits scalaires $(\vec{x}_i \cdot \vec{x}_j)$, ce qui nous permet d'utiliser l'astuce du noyau ou kernel trick en anglais
 \end{enumerate}
 
 \subsubsection*{Le Kernel Trick (Astuce du noyau)}
 
-Si l'espace de départ ne permet pas de tracer une frontière rectiligne pertinente, nous pouvons transformer nos données via une fonction non linéaire $\phi : \mathbb{R}^d \rightarrow \mathcal{F}$, où $\mathcal{F}$ est un espace de plus grande dimension. 
+Si il est trop optimiste de pouvoir  tracer une frontière rectiligne pertinente dans l'espace de départ qui est de faible dimension, nous pouvons transformer nos données via une fonction non linéaire $\phi : \mathbb{R}^d \rightarrow \mathcal{F}$, où $\mathcal{F}$ est un espace de bien plus grande dimension. 
 
 Plutôt que de calculer explicitement les lourdes coordonnées de $\phi(\vec{x}_i)$ — ce qui serait coûteux voire impossible si $\mathcal{F}$ est de dimension infinie —, la littérature classique \cite{boser1992kernel} souligne que l'algorithme dual n'a besoin que du produit scalaire dans ce nouvel espace. Il suffit alors de définir une fonction noyau $K$ telle que :
 \[
 K(\vec{x}_i, \vec{x}_j) \;=\; \phi(\vec{x}_i) \cdot \phi(\vec{x}_j)
 \]
-On remplace simplement le terme $(\vec{x}_i \cdot \vec{x}_j)$ par $K(\vec{x}_i, \vec{x}_j)$ dans le problème dual. L'algorithme se comporte alors comme si nous avions optimisé un hyperplan dans un espace très complexe, tout en conservant une complexité de calcul parfaitement maîtrisée. C'est précisément cette matrice des similarités $K$ (matrice de Gram) que l'ordinateur quantique va se charger de calculer pour nous dans l'approche hybride.
+On remplace simplement le terme $(\vec{x}_i \cdot \vec{x}_j)$ par $K(\vec{x}_i, \vec{x}_j)$ dans le problème dual. L'algorithme se comporte alors comme si nous avions optimisé un hyperplan dans un espace très complexe celui où vivent les points $\phi(\vec{x}_i)$ , tout en conservant une complexité de calcul parfaitement maîtrisée. C'est précisément cette matrice des similarités $K$ (matrice de Gram) que l'ordinateur quantique va se charger de calculer pour nous dans l'approche hybride.
 
 \subsection{Quantum One-Class Support Vector Machine (Q-OCSVM)}
 \label{subsec:q-ocsvm}
 
-Si le clustering variationnel vise à regrouper les données en plusieurs catégories, il est souvent plus naturel, dans le contexte de la fraude bancaire, de ne chercher qu'à modéliser ce qui est « normal ». La fraude étant par nature rare et multiforme, il est difficile d'en faire un cluster à part entière. Le \emph{Quantum One-Class SVM} (Q-OCSVM) répond exactement à cette logique, en adaptant au monde quantique le concept d'estimation de support \cite{scholkopf2001ocsvm} : au lieu de partitionner l'espace, nous cherchons à tracer une frontière la plus ajustée possible autour des transactions légitimes. Toute nouvelle transaction qui tombe à l'extérieur de cette enveloppe sera considérée comme une anomalie.
+Si le clustering variationnel vise à regrouper les données en plusieurs catégories, il est souvent plus naturel, dans le contexte de la fraude bancaire, de ne chercher qu'à modéliser ce qui est « normal ». La fraude étant par nature rare et multiforme, il est difficile d'en faire un cluster à part entière. Le \emph{Quantum One-Class SVM} (Q-OCSVM) répond exactement à cette logique, en adaptant au monde quantique le concept d'estimation de support \cite{scholkopf2001ocsvm} : au lieu de partitionner l'espace, nous cherchons à tracer une frontière la plus ajustée possible autour des transactions légitimes. Le problème d'optimisation primal s'écrit ici :
 
-L'intérêt majeur de cette méthode pour notre pipeline hybride réside dans la séparation très nette des tâches. Nous n'utilisons le processeur quantique que pour une seule chose : évaluer à quel point deux transactions se ressemblent. Toute la partie d'optimisation (le tracé de la frontière) reste confiée à un algorithme classique. Cela nous évite les problèmes de convergence ou de plateaux stériles (\emph{barren plateaus}) que l'on rencontre fréquemment avec les réseaux de neurones quantiques purement variationnels.
+\begin{equation}
+\begin{aligned}
+    & \min_{\vec{w}, \rho, \vec{\xi}}
+    & & \frac{1}{2} \|\vec{w}\|^2 - \rho + \frac{1}{\nu N} \sum_{i=1}^{N} \xi_i \\
+    & \text{sous contraintes}
+    & & \vec{w} \cdot \phi(\vec{x}_i) \geq \rho - \xi_i, \quad \forall i \in \{1, \dots, N\} \\
+    & & & \xi_i \geq 0, \quad \forall i \in \{1, \dots, N\}
+\end{aligned}
+\label{eq:ocsvm_primal}
+\end{equation}
+
+Ainsi, bien que le SVM classique soit fondamentalement un algorithme d'apprentissage supervisé (nécessitant des étiquettes pour séparer deux classes distinctes), l'OCSVM s'inscrit dans un cadre strictement non supervisé. L'astuce géométrique consiste à fournir uniquement des données normales à l'algorithme (ou à défaut des données passées) et à contraindre l'optimisation pour que tous ces points soient confinés du même côté d'un hyperplan, tandis que l'origine de l'espace de représentation est artificiellement repoussée de l'autre côté, jouant le rôle de la classe adverse.
+
+L'intérêt majeur de cette méthode pour notre pipeline hybride réside dans la séparation très nette des tâches. Nous n'utilisons le processeur quantique que pour une seule chose : évaluer à quel point deux transactions se ressemblent. Toute la partie d'optimisation (le tracé de la frontière) reste confiée à un algorithme classique. 
 
 \subsubsection*{Plongement quantique et matrice de Gram}
 
@@ -254,16 +266,16 @@ Concrètement, chaque transaction $\vec{x}_i \in \mathbb{R}^d$ est encodée sous
 \[
 \ket{\psi(\vec{x}_i)} \;=\; U(\vec{x}_i)\ket{0}^{\otimes n}
 \]
-L'espace dans lequel nous travaillons n'est plus un espace euclidien standard, mais l'espace de Hilbert de nos $n$ qubits, dont la dimension croît de manière exponentielle ($2^n$). En utilisant des circuits d'encodage qui intriquent les qubits (comme les feature maps basés sur des portes de Pauli \cite{havlicek2019}), nous exploitons des corrélations très complexes entre les différentes caractéristiques (montant, heure, localisation) de la transaction. La similarité entre deux transactions $\vec{x}_i$ et $\vec{x}_j$ correspond alors tout simplement à la probabilité de transition entre leurs deux états quantiques, c'est-à-dire leur fidélité :
+L'espace dans lequel nous travaillons n'est plus un espace euclidien standard, mais l'espace de Hilbert de nos $n$ qubits, dont la dimension croît de manière exponentielle en $2^n$. En utilisant des circuits d'encodage qui intriquent les qubits (comme les feature maps basés sur des portes de Pauli \cite{havlicek2019}), nous exploitons des corrélations très complexes entre les différentes caractéristiques (montant, heure, localisation) de la transaction. La similarité entre deux transactions $\vec{x}_i$ et $\vec{x}_j$ correspond alors tout simplement à la probabilité de transition entre leurs deux états quantiques, c'est-à-dire leur fidélité :
 \[
 K_Q(\vec{x}_i, \vec{x}_j) \;=\; \bigl|\!\braket{\psi(\vec{x}_i)\,|\,\psi(\vec{x}_j)}\!\bigr|^2
 \]
 
 \subsubsection*{Le circuit de calcul (Compute-Uncompute)}
 
-Pour estimer cette fidélité sur machine, nous pourrions utiliser le \emph{SWAP test} présenté dans la section précédente. Cependant, le SWAP test nécessite de doubler le nombre de qubits pour stocker les deux états simultanément, en plus d'un qubit ancillaire. Sur les processeurs NISQ actuels, chaque qubit supplémentaire apporte du bruit.
+Pour estimer cette fidélité sur machine, nous pourrions utiliser le \emph{SWAP test} présenté dans la section précédente. Cependant, le SWAP test nécessite de doubler le nombre de qubits pour stocker les deux états simultanément, en plus d'un qubit ancillaire. Sur les processeurs actuels, chaque qubit supplémentaire apporte du bruit.
 
-Nous avons donc opté pour une méthode beaucoup plus économe en ressources, couramment appelée \emph{inversion} ou \emph{compute-uncompute} dans la littérature d'apprentissage quantique à base de noyaux \cite{schuld2019qml}. L'idée est de n'utiliser qu'un seul registre de $n$ qubits. On applique d'abord le circuit d'encodage pour la première transaction, puis on applique l'inverse du circuit paramétré avec la seconde transaction :
+D'après la littérature d'apprentissage quantique à base de noyaux \cite{schuld2019qml} il est préférable d'utiliser une technique appelée \emph{inversion} ou \emph{compute-uncompute}. L'idée est de n'utiliser qu'un seul registre de $n$ qubits. On applique d'abord le circuit d'encodage pour la première transaction, puis on applique l'inverse du circuit paramétré avec la seconde transaction :
 \[
 \ket{\psi_{i,j}} \;=\; U^\dagger(\vec{x}_j) \, U(\vec{x}_i)\ket{0}^{\otimes n}
 \]
@@ -281,9 +293,9 @@ Si les deux transactions sont identiques ($\vec{x}_i = \vec{x}_j$), l'opération
 
 \subsubsection*{Entraînement et limites de passage à l'échelle}
 
-Une fois que le circuit quantique a calculé les similarités pour toutes les paires de transactions de notre jeu d'entraînement, nous obtenons une matrice dense, la matrice de Gram. Celle-ci est transmise à un optimiseur classique qui va chercher à isoler les données en ajustant un paramètre $\nu$ (qui représente concrètement la proportion de faux positifs que la banque est prête à tolérer).
+Une fois que le circuit quantique a calculé les similarités pour toutes les paires de transactions de notre jeu d'entraînement, nous obtenons une matrice dense, la matrice de Gram. Celle-ci est transmise à un optimiseur classique qui va chercher à isoler les données en ajustant un paramètre $\nu$ qui est inversement proportionnel au paramètre de pénalité $C$ indiqué dans l'équation d'optimisation du SVM dans la section précédente (et qui représente concrètement la proportion de faux positifs que la banque est prête à tolérer).
 
-Le principal verrou de cette méthode, que nous avons dû affronter lors des tests sur les données de la BNP, est sa complexité quadratique. Pour $N$ transactions d'entraînement, il faut exécuter $N(N-1)/2$ circuits quantiques, et ce, pour plusieurs milliers de tirs (\emph{shots}) à chaque fois afin d'avoir une estimation statistique fiable. Sur un jeu de données bancaire massif, le calcul complet de la matrice devient vite irréalisable en un temps raisonnable. C'est pourquoi nous avons dû intégrer des stratégies de sous-échantillonnage de la classe majoritaire pour rendre l'entraînement calculable au sein de notre pipeline.
+Le principal verrou de cette méthode, que nous avons dû affronter lors des tests sur les données de la BNP, est sa complexité quadratique. Pour $N$ transactions d'entraînement, il faut exécuter $N(N-1)/2$ circuits quantiques, et ce, pour plusieurs milliers de batchs à chaque fois afin d'avoir une estimation statistique fiable. Sur un jeu de données bancaire massif, le calcul complet de la matrice devient vite irréalisable en un temps raisonnable. C'est pourquoi nous avons dû accepter l'idée de ne conserver qu'un sous échantillon lors des implémentations de nos algorithmes sur le dataset fourni par la BNP. 
 
 \subsubsection*{Algorithme complet}
 
@@ -330,9 +342,9 @@ Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline e
 
 \begin{enumerate}
     \item Algorithme classique superivsé : Preprocessing + Random Forest (ou Tancrède)
-    \item Algorithme quantique non superivsé : OCQSVM
-    \item Algorithme hybride autosupervisé : OCQSVM + Random Forest 
-    \item Algorithme quantique superivsé : Preprocessing + QSVM
+    \item Algorithme quantique non superivsé : Q-OCSVM
+    \item Algorithme hybride autosupervisé : Q-OCSVM + Random Forest 
+    \item Algorithme quantique superivsé : Preprocessing + Q-SVM
 \end{enumerate}
 Voici les résultats sur le dataset : 
 
