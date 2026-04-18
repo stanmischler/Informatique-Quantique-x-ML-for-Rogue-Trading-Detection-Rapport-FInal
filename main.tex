@@ -117,16 +117,14 @@ Bien que la nécessité de faire du Preprocessing n'est plus à démontrer, il r
 Enfin il est également possible de rendre ces algorithmes quantiques (par exemple QSMOTE \cite{SMOTE2025}), c'est-à-dire agissant sur les vecteurs dans l'espace des états. Ou bien nous les utilisons pour optimiser notre base de données avant l'encodage quantique des vecteurs, ou bien nous les utilisons après l'encodage quantique, sur les vecteurs de notre FeatureMap. Le prétraitement post-mapping permet d'opérer directement sur la structure topologique de l'Espace de Hilbert, facilitant l'extraction de corrélations quantiques complexes qui resteraient cachées dans l'espace euclidien originel. 
 
 
-\section{Algorithmes non supervisés}\label{sec:clustering}
-
-Vu l'absence de labels dans le jeu de données fourni par la BNP notre groupe de PSC s'est grandement intéressé aux algorithmes non supervisés pouvant être implémentés sur un ordinateur quantique. Nous présentons en détail dans cette section deux algorithmes quantiques le Clustering Quantique Varationnel ainsi que le One Class Support Vector Machine Quantique.
+\section{Clustering}\label{sec:clustering}
 
 \subsection{Clustering classique}
 
 \subsection{Clustering quantique variationnel}
 \label{subsec:vqc-clustering}
 
-Parmi les différentes familles de clustering quantique présentées dans l'état de l'art, nous avons retenu l'approche \emph{variationnelle} (Variational Quantum Clustering, VQC) car elle est aujourd'hui la plus largement utilisée en pratique, et la seule à être véritablement compatible avec les contraintes matérielles NISQ actuelles. Là où les algorithmes à garanties asymptotiques comme le $q$-means \cite{kerenidis_qmeans} ou le clustering spectral quantique \cite{kerenidis_spectral} supposent l'existence d'une QRAM fonctionnelle — hypothèse encore débattue et non disponible sur les processeurs actuels —, les méthodes variationnelles se contentent de circuits paramétrés de profondeur modérée, optimisés en boucle hybride par un algorithme classique. Elles s'inscrivent ainsi dans la même philosophie que les \emph{Variational Quantum Classifiers} du cadre supervisé \cite{havlicek2019, abbou2025vqc, elalami2026}, et font depuis quelques années l'objet d'un corpus croissant : Bermejo et Orús \cite{bermejo_orus} formulent ainsi une version purement variationnelle du clustering dont nous reprenons directement la structure, tandis que Poggiali et al.~\cite{poggiali_kmeans} proposent une variante hybride de $k$-means déléguant le calcul des distances à un sous-circuit quantique. Un autre intérêt méthodologique décisif de cette approche est de décorréler les paramètres intrinsèques au problème (nombre de points $N$, nombre de clusters $k$) de la taille du circuit quantique, ce qui la rend transposable à différentes tailles de processeurs.
+Après avoir passé en revue les principales techniques de clustering quantique, nous avons retenu l'approche \emph{variationnelle} (Variational Quantum Clustering, VQC) car c'est aujourd'hui la plus employée. Nous en reprenons directement la formulation proposée par Bermejo et Orús \cite{bermejo_orus}.
 
 \subsubsection*{Encodage et états de référence}
 
@@ -137,7 +135,7 @@ On considère un jeu de $N$ points $\mathcal{X} = \{\vec{x}_1,\dots,\vec{x}_N\} 
 \]
 Ce schéma d'\emph{angle encoding} est le plus léger en profondeur, donc le mieux adapté aux contraintes NISQ \cite{abbou2025vqc}. Des encodages plus expressifs — \emph{ZZ feature map}, \emph{amplitude encoding}, ou ansatz entanglant paramétré par couches $U_{\text{ent}}(\vec{\theta}_i)$ — peuvent s'y substituer sans modifier le reste de l'algorithme.
 
-À chaque cluster $c \in \{1,\dots,k\}$ est associé un \emph{état de référence} $\ket{\phi_c} \in (\mathbb{C}^2)^{\otimes n}$, tiré aléatoirement au début de l'exécution et \emph{gelé} pendant tout l'apprentissage. Les paramètres entraînables sont donc uniquement les $\{\vec{\theta}_i\}_{i=1}^N$, qui encodent la position de chaque point dans l'espace de Hilbert relativement aux ancres fixes $\{\ket{\phi_c}\}_{c=1}^k$.
+À chaque cluster $c \in \{1,\dots,k\}$ est associé un \emph{état de référence} $\ket{\phi_c} \in (\mathbb{C}^2)^{\otimes n}$, tiré aléatoirement au début de l'exécution et \emph{gelé} pendant tout l'apprentissage. Les paramètres entraînables sont donc uniquement les $\{\vec{\theta}_i\}_{i=1}^N$, qui encodent la position de chaque point dans l'espace de Hilbert relativement aux ancres fixes $\{\ket{\phi_c}\}_{c=1}^k$. On notera que les $\ket{\phi_c}$ ne forment pas nécessairement une base orthonormée : ils sont tirés indépendamment et peuvent avoir des recouvrements non nuls entre eux, ce qui est sans incidence sur la validité de l'algorithme.
 
 \subsubsection*{Matrice de fidélité et SWAP test}
 
@@ -176,7 +174,7 @@ Le premier terme $\mathcal{C}_{\text{cluster}}$ pénalise l'appartenance simulta
 
 Le second terme $\mathcal{C}_{\text{pénalité}}$ impose que chaque point totalise une masse de fidélité proche de $1$ sur l'ensemble des $k$ clusters, empêchant la solution dégénérée $\mathcal{F}_{ic} \to 0$ qui annulerait trivialement $\mathcal{C}_{\text{cluster}}$ sans produire de clustering. Il force ainsi, à la limite $\lambda \to \infty$, un comportement « one-hot » où chaque point se concentre sur un unique cluster.
 
-Le scalaire $\lambda > 0$ règle l'équilibre entre ces deux contraintes et constitue l'unique hyperparamètre proprement variationnel du modèle. Un $\lambda$ trop faible autorise des assignations floues sans incitation à clusteriser nettement ; un $\lambda$ trop grand fait dominer la pénalité au point de masquer la géométrie sous-jacente. Les expériences du groupe 2024-25 (cf.~leur figure~3.3) montrent qu'un réglage $\lambda \approx 10$ produit des assignations nettes sur données gaussiennes en $\mathbb{R}^3$, tandis que $\lambda = 100$ dégrade fortement l'\emph{indice de Rand ajusté} (ARI, \emph{Adjusted Rand Index}) — mesure standard de similarité entre deux partitions d'un même ensemble, corrigée pour que l'espérance sous assignation aléatoire vaille $0$ et que l'identité vaille $1$, qui sert ici de métrique non supervisée évaluant la qualité du clustering par rapport aux étiquettes de vérité terrain.
+Le scalaire $\lambda > 0$ règle l'équilibre entre ces deux contraintes et constitue l'unique hyperparamètre proprement variationnel du modèle. Un $\lambda$ trop faible autorise des assignations floues sans incitation à clusteriser nettement ; un $\lambda$ trop grand fait dominer la pénalité au point de masquer la géométrie sous-jacente. Les expériences du groupe précédent fixent $\lambda = 10$, valeur que nous retenons.
 
 \subsubsection*{Algorithme complet}
 
@@ -185,7 +183,7 @@ L'algorithme complet assemble les ingrédients précédents en une boucle classi
     \item \textbf{Initialisation.} Normaliser les données, calculer une fois pour toutes la matrice $D$, tirer aléatoirement $\{\vec{\theta}_i\}_{i=1}^N \in [0,2\pi)^{n \cdot N}$ et $\{\ket{\phi_c}\}_{c=1}^k$.
     \item \textbf{Évaluation quantique.} Pour chaque couple $(i,c)$, préparer $\ket{\psi(\vec{\theta}_i)}$ et $\ket{\phi_c}$, exécuter un SWAP test, et assembler la matrice $\mathcal{F}(\vec{\theta})$.
     \item \textbf{Calcul classique du coût.} Évaluer $\mathcal{C}(\vec{\theta})$ à partir de $D$ et $\mathcal{F}$.
-    \item \textbf{Mise à jour.} Utiliser un optimiseur classique (L-BFGS-B avec gradients numériques dans notre implémentation, \emph{parameter-shift rule} lorsqu'elle est applicable analytiquement) pour mettre à jour $\vec{\theta}$, puis répéter les étapes 2–4 jusqu'à convergence.
+    \item \textbf{Mise à jour.} Utiliser un optimiseur classique (L-BFGS-B avec gradients numériques dans notre implémentation) pour mettre à jour $\vec{\theta}$, puis répéter les étapes 2–4 jusqu'à convergence.
     \item \textbf{Assignation finale.} Pour chaque point $i$, retourner le cluster $c_i = \arg\max_{c}\, \mathcal{F}_{ic}$.
 \end{enumerate}
 
@@ -212,7 +210,7 @@ L'algorithme complet assemble les ingrédients précédents en une boucle classi
 \draw[arr] (swap) -- (fid);
 \draw[arr] (fid) -- (cost);
 \draw[arr] (cost) -- (opt);
-\draw[arr] (opt) |- (init) node[pos=0.95, above, font=\scriptsize, xshift=-8mm] {$\vec{\theta} \leftarrow \vec{\theta} + \Delta\vec{\theta}$};
+\draw[arr] (opt.north) -- node[midway, left, font=\scriptsize] {$\vec{\theta} \leftarrow \vec{\theta} + \Delta\vec{\theta}$} (init.south);
 
 \node[draw, dashed, fit=(circ)(swap), inner sep=4pt, label=above:{\footnotesize \emph{Monde quantique}}] {};
 \end{tikzpicture}
@@ -222,9 +220,34 @@ L'algorithme complet assemble les ingrédients précédents en une boucle classi
 
 \subsubsection*{Choix du nombre de qubits et complexité}
 
-Le nombre $n$ de qubits dédiés à l'encodage joue un rôle crucial, mis empiriquement en évidence dans le rapport 2024-25. Deux régimes sont à éviter. En régime de \emph{sous-paramétrisation} ($2^n < d$), la dimension de l'espace de Hilbert est trop faible pour distinguer les clusters et l'encodage projette des points distincts sur des états quasi confondus, induisant des fusions parasites. En régime de \emph{sur-paramétrisation} ($2^n \gg d$), la surface de coût devient combinatoirement complexe : l'optimiseur a toutes les chances de rester coincé dans un minimum local peu informatif, manifestation du phénomène plus général de \emph{barren plateau}. En pratique, choisir $n \approx \lceil\log_2 d\rceil$ offre le meilleur compromis expressivité / trainability, constat cohérent avec les conclusions d'Abbou et al.~\cite{abbou2025vqc} sur les VQC supervisés, qui observent qu'une connectivité \emph{circulaire} entre qubits et une dimension d'encodage intermédiaire dominent systématiquement les alternatives extrêmes.
+Le nombre $n$ de qubits dédiés à l'encodage joue un rôle crucial, mis empiriquement en évidence dans le rapport 2024-25. Deux régimes sont à éviter. En régime de \emph{sous-paramétrisation} ($2^n < d$), la dimension de l'espace de Hilbert est trop faible pour distinguer les clusters et l'encodage projette des points distincts sur des états quasi confondus, induisant des fusions parasites. En régime de \emph{sur-paramétrisation} ($2^n \gg d$), on effectue beaucoup de calculs inutiles et l'optimisation devient moins efficace. En pratique, choisir $n \approx \lceil\log_2 d\rceil$ offre le meilleur compromis.
 
 La complexité par itération de l'optimiseur est en $\mathcal{O}(N k \cdot P)$ exécutions élémentaires du circuit SWAP test, où $N$ est le nombre de points, $k$ le nombre de clusters, et $P$ le nombre de répétitions utilisées pour estimer chaque fidélité.
+
+\subsection{Implémentation}
+
+\subsubsection*{Métrique d'évaluation : l'indice de Rand ajusté (ARI)}
+
+Pour évaluer la qualité du clustering, nous utilisons l'\emph{indice de Rand ajusté} (ARI, \emph{Adjusted Rand Index}), qui mesure la similarité entre la partition prédite $\hat{\mathcal{P}} = \{\hat{C}_1,\dots,\hat{C}_k\}$ et la partition de référence $\mathcal{P}^{\star} = \{C_1^{\star},\dots,C_{k'}^{\star}\}$. En notant $n_{ij} = |\hat{C}_i \cap C_j^{\star}|$, $a_i = \sum_j n_{ij}$ et $b_j = \sum_i n_{ij}$,
+\[
+\mathrm{ARI} \;=\; \frac{\displaystyle\sum_{i,j}\binom{n_{ij}}{2} \;-\; \tfrac{1}{\binom{N}{2}}\sum_i \binom{a_i}{2}\sum_j \binom{b_j}{2}}{\tfrac{1}{2}\!\left(\sum_i \binom{a_i}{2} + \sum_j \binom{b_j}{2}\right) \;-\; \tfrac{1}{\binom{N}{2}}\sum_i \binom{a_i}{2}\sum_j \binom{b_j}{2}}.
+\]
+Le numérateur compte les paires de points regroupées à l'identique dans les deux partitions (terme $\sum_{i,j}\binom{n_{ij}}{2}$), auquel on retranche le nombre attendu de telles paires sous tirage aléatoire. Ainsi, $\mathrm{ARI} = 1$ lorsque les deux partitions coïncident parfaitement et $\mathrm{ARI} = 0$ lorsque la partition prédite n'est pas meilleure qu'un tirage au hasard.
+
+\subsubsection*{Première expérience}
+
+Nous avons implémenté l'algorithme VQC décrit plus haut en \emph{Qiskit}. Le jeu de données synthétique est constitué de trois \emph{blobs} gaussiens dans $\mathbb{R}^3$, chacun de cardinalité $20$ (soit $N = 60$ points à partitionner en $k = 3$ clusters). Nous avons ensuite exécuté la boucle hybride décrite précédemment pendant $30$ itérations de l'optimiseur, avec l'hyperparamètre $\lambda = 10$.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{.png/VQC_first_results.png}
+\caption{Résultats de la première exécution du clustering variationnel quantique sur trois blobs gaussiens dans $\mathbb{R}^3$ ($N = 60$, $k = 3$, $\lambda = 10$, $30$ itérations).}
+\label{fig:vqc-first-results}
+\end{figure}
+
+L'ARI obtenu sur cette exécution vaut $0{,}950$, ce qui signifie que la VQC a bien compris la répartition en clusters. Ce résultat confirme que la boucle variationnelle parvient à exploiter la géométrie des blobs malgré le faible nombre d'itérations, et valide notre implémentation.
+
+
 
 
 
