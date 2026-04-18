@@ -8,6 +8,7 @@
 \usepackage{braket}
 \usepackage{tikz}
 \usepackage{quantikz}
+\usepackage{float}
 \usetikzlibrary{positioning, arrows.meta, babel}
 
 \author{Hannah Faucheu, Guillaume Hentotte, Achim Kobena Dongo, Tancrède Tonnini, Kristen Boitier, Stanislas Mischler}
@@ -222,7 +223,7 @@ L'algorithme complet assemble les ingrédients précédents en une boucle classi
 
 Le nombre $n$ de qubits dédiés à l'encodage joue un rôle crucial, mis empiriquement en évidence dans le rapport 2024-25. Deux régimes sont à éviter. En régime de \emph{sous-paramétrisation} ($2^n < d$), la dimension de l'espace de Hilbert est trop faible pour distinguer les clusters et l'encodage projette des points distincts sur des états quasi confondus, induisant des fusions parasites. En régime de \emph{sur-paramétrisation} ($2^n \gg d$), on effectue beaucoup de calculs inutiles et l'optimisation devient moins efficace. En pratique, choisir $n \approx \lceil\log_2 d\rceil$ offre le meilleur compromis.
 
-La complexité par itération de l'optimiseur est en $\mathcal{O}(N k \cdot P)$ exécutions élémentaires du circuit SWAP test, où $N$ est le nombre de points, $k$ le nombre de clusters, et $P$ le nombre de répétitions utilisées pour estimer chaque fidélité.
+La complexité par itération de l'optimiseur se décompose en deux contributions. Côté quantique, il faut $\mathcal{O}(N k \cdot P)$ exécutions élémentaires du circuit SWAP test pour remplir la matrice de fidélité $\mathcal{F}$, où $N$ est le nombre de points, $k$ le nombre de clusters, et $P$ le nombre de répétitions utilisées pour estimer chaque fidélité. Côté classique, l'évaluation de la fonction de coût $\mathcal{C}(\vec{\theta})$ à partir de $\mathcal{F}$ et $D$ coûte $\mathcal{O}(N^2 k)$ opérations, en raison de la double somme sur les paires $(i,j)$ dans le terme $\mathcal{C}_{\text{cluster}}$.
 
 \subsection{Implémentation}
 
@@ -246,6 +247,147 @@ Nous avons implémenté l'algorithme VQC décrit plus haut en \emph{Qiskit}. Le 
 \end{figure}
 
 L'ARI obtenu sur cette exécution vaut $0{,}950$, ce qui signifie que la VQC a bien compris la répartition en clusters. Ce résultat confirme que la boucle variationnelle parvient à exploiter la géométrie des blobs malgré le faible nombre d'itérations, et valide notre implémentation.
+
+\subsubsection*{Application au jeu de données de cartes bancaires}
+
+Après avoir validé l'implémentation sur des données synthétiques, nous avons appliqué le clustering variationnel quantique au jeu de données de cartes bancaires de Kaggle. Nous en tirons un sous-ensemble de $N = 200$ transactions, dont $10$ fraudes avérées. L'algorithme est exécuté avec $n = 6$ qubits et l'hyperparamètre $\lambda = 10$. Afin de visualiser la partition obtenue dans un espace de dimension raisonnable, nous projetons les données sur les trois composantes principales issues d'une ACP, puis affichons l'affectation des points aux clusters (figure~\ref{fig:qcl-clusters}).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{.png/Quantum_clustering_1.png}
+\caption{Clustering quantique variationnel sur $200$ transactions ($10$ fraudes, $n = 6$ qubits, $\lambda = 10$), visualisé dans l'espace des trois composantes principales.}
+\label{fig:qcl-clusters}
+\end{figure}
+
+Pour détecter les fraudes à partir de cette partition, nous exploitons l'incertitude d'affectation du VQC. Pour chaque transaction $i$, nous disposons des probabilités d'appartenance $F_{ic}$ à chacun des clusters $c$ et définissons le score de confiance $s_i = \max_c F_{ic}$. Nous fixons alors un seuil $\tau$ tel qu'une transaction vérifiant $s_i < \tau$ soit considérée comme mal affectée et étiquetée comme fraude. Le seuil optimal $\tau^\star$ est obtenu en itérant sur l'ensemble des valeurs admissibles et en retenant celui qui maximise le score $F_1$ sur les $10$ fraudes connues. La courbe d'évolution du $F_1$ en fonction du seuil est reportée sur la figure~\ref{fig:qcl-curve} et les résultats optimaux sont rassemblés dans le tableau~\ref{tab:qcl-results}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{".png/QVC Curve.png"}
+\caption{Évolution du score $F_1$ du VQC en fonction du seuil de confiance $\tau$.}
+\label{fig:qcl-curve}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\hline
+Métrique & Valeur \\
+\hline
+Seuil optimal $\tau^\star$ & $0{,}0009$ \\
+$F_1$ & $0{,}5833$ \\
+Précision & $0{,}5000$ ($7$ TP / $14$ signalés) \\
+Rappel & $0{,}7000$ ($7$ TP / $10$ fraudes) \\
+Transactions signalées & $14 / 200$ \\
+\hline
+\end{tabular}
+\caption{Résultats optimaux du clustering quantique variationnel sur le sous-ensemble de $200$ transactions.}
+\label{tab:qcl-results}
+\end{table}
+
+\subsubsection*{Benchmark avec l'algorithme $k$-means}
+
+Nous avons ensuite appliqué la même procédure au clustering classique des $k$-means sur le même sous-ensemble, afin de disposer d'un point de comparaison. La stratégie de détection diffère légèrement : plutôt que d'utiliser une probabilité d'affectation, nous exploitons la distance euclidienne $d_i$ de chaque transaction au centroïde de son cluster d'affectation. Une transaction est signalée comme fraude si $d_i > \tau$, et le seuil $\tau$ est à nouveau choisi pour maximiser le $F_1$. Les clusters obtenus sur les trois premières composantes principales sont présentés sur la figure~\ref{fig:kmeans-clusters}, la courbe d'évolution du $F_1$ sur la figure~\ref{fig:kmeans-curve} et les résultats optimaux dans le tableau~\ref{tab:kmeans-results}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{.png/k-means_points.png}
+\caption{Clustering $k$-means sur les mêmes $200$ transactions, visualisé dans l'espace des trois composantes principales.}
+\label{fig:kmeans-clusters}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{.png/k-means-curve.png}
+\caption{Évolution du score $F_1$ du $k$-means en fonction du seuil de distance au centroïde.}
+\label{fig:kmeans-curve}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\hline
+Métrique & Valeur \\
+\hline
+Seuil optimal $\tau^\star$ & $6{,}4702$ \\
+$F_1$ & $0{,}7200$ \\
+Précision & $0{,}6000$ ($9$ TP / $15$ signalés) \\
+Rappel & $0{,}9000$ ($9$ TP / $10$ fraudes) \\
+Transactions signalées & $15 / 200$ \\
+\hline
+\end{tabular}
+\caption{Résultats optimaux du $k$-means sur le même sous-ensemble de $200$ transactions.}
+\label{tab:kmeans-results}
+\end{table}
+
+\paragraph{Interprétation.} De prime abord, le $k$-means demeure plus efficace que le clustering quantique variationnel, avec un $F_1$ supérieur ($0{,}72$ contre $0{,}58$) et des clusters visuellement plus nets. L'écart se creuse en particulier sur le \emph{rappel} ($0{,}90$ contre $0{,}70$), ce qui est d'autant plus significatif que cette métrique est la plus critique en détection de fraude : manquer une transaction frauduleuse (faux négatif) coûte bien plus cher à la banque qu'une alerte injustifiée. Une explication plausible de ce déficit réside dans la simplicité des transformations considérées dans notre circuit d'encodage : la \emph{feature map} utilisée ne produit pas un plongement suffisamment riche pour que les fraudes se distinguent clairement des transactions légitimes via les probabilités $F_{ic}$. Il apparaît donc nécessaire d'améliorer cette approche — par exemple en enrichissant la \emph{feature map} ou en repensant le critère de détection — ce que nous explorons dans le paragraphe suivant, avant de nous tourner, dans la section suivante, vers un algorithme quantique plus spécifiquement conçu pour la détection d'anomalies, le Q-OCSVM.
+
+\subsubsection*{Clustering quantique variationnel amélioré}
+
+Un examen critique de l'implémentation de base révèle trois limitations structurelles qui bornent ce que le modèle peut effectivement apprendre.
+
+\begin{enumerate}
+    \item \textbf{Absence d'intrication.} Le circuit d'encodage se réduit à un produit tensoriel de blocs $[\cos(\theta/2), \sin(\theta/2)]$ qubit par qubit (uniquement des portes $R_Y$, sans $\mathrm{CNOT}$ ni $\mathrm{CZ}$). L'ensemble des états atteignables est donc un tore de dimension $n_{\text{qubits}}$ plongé dans l'espace de Hilbert de dimension $2^{n_{\text{qubits}}}$ : nous restons confinés aux états produits classiques et nous n'exploitons aucune corrélation quantique.
+    \item \textbf{Amplitudes exclusivement réelles.} Les portes utilisées n'engendrent que des amplitudes réelles ($\cos$ et $\sin$ d'angles réels), alors que les références cibles tirées uniformément dans $\mathbb{C}^{2^n}$ possèdent une partie imaginaire. Les fidélités $|\!\braket{\phi|\psi}\!|^2$ ne retiennent que la composante réelle et un grand nombre de références distinctes deviennent indiscernables sur cette variété.
+    \item \textbf{Pénalité de normalisation mal posée.} La contrainte $\sum_c \mathcal{F}_{ic} \to 1$ n'est valide que si les $\{\ket{\phi_c}\}$ forment une base orthonormée complète ($k = d$). Or, avec $k = 3$ vecteurs tirés dans $d = 2^5 = 32$ dimensions, l'espérance de cette somme vaut $k/d$, et non $1$ ; la pénalité pousse l'optimiseur vers une cible inatteignable.
+\end{enumerate}
+
+Nous reconstruisons le modèle de façon à lever simultanément ces trois obstacles, tout en conservant la méthode de détection par balayage de seuil sur $s_i = \max_c \mathcal{F}_{ic}$ de la section précédente.
+
+\paragraph{Rotations à un qubit.} Les portes $R_X(\theta)$, $R_Y(\theta)$ et $R_Z(\theta)$ désignent les rotations d'un qubit d'un angle $\theta$ autour des axes $x$, $y$ et $z$ de la sphère de Bloch, définies par $R_\sigma(\theta) = \exp(-i\,\theta\,\sigma/2)$ où $\sigma \in \{X, Y, Z\}$ est la matrice de Pauli correspondante. Matriciellement,
+\[
+R_Y(\theta) = \begin{pmatrix} \cos\tfrac{\theta}{2} & -\sin\tfrac{\theta}{2} \\ \sin\tfrac{\theta}{2} & \phantom{-}\cos\tfrac{\theta}{2} \end{pmatrix}, \quad R_Z(\theta) = \begin{pmatrix} e^{-i\theta/2} & 0 \\ 0 & e^{i\theta/2} \end{pmatrix}, \quad R_X(\theta) = \begin{pmatrix} \cos\tfrac{\theta}{2} & -i\sin\tfrac{\theta}{2} \\ -i\sin\tfrac{\theta}{2} & \phantom{-i}\cos\tfrac{\theta}{2} \end{pmatrix}.
+\]
+En particulier, $R_Y$ appliquée à $\ket{0}$ n'engendre que des amplitudes réelles, ce qui correspond à la limitation (2) identifiée plus haut et justifie l'introduction de $R_Z$ (qui ajoute des phases complexes) dans le bloc variationnel.
+
+\paragraph{Modifications apportées.}
+\begin{itemize}
+    \item \emph{Feature map avec intrication.} Nous appliquons $R_Y(x)$ sur chaque qubit, puis un anneau de portes $\mathrm{CZ}$, puis $R_Y(2x)$ sur chaque qubit. À partir de $\ket{0}^{\otimes n}$, les caractéristiques (coordonnées ACP des transactions) produisent désormais un état véritablement intriqué, dont les amplitudes dépendent non linéairement des entrées.
+    \item \emph{Bloc variationnel partagé.} Nous ajoutons $n_{\text{layers}}$ couches composées, pour chaque qubit, d'une séquence $R_Y$–$R_Z$–$R_Y$ suivie d'un anneau $\mathrm{CZ}$. Les angles entraînables $\theta$, de forme $(n_{\text{layers}}, n_{\text{qubits}}, 3)$, sont partagés entre tous les échantillons, ce qui ramène le nombre de paramètres à quelques dizaines (au lieu de $N\cdot n$) et rend la descente \emph{L-BFGS-B} à différences finies peu coûteuse.
+    \item \emph{États de cluster libres.} Chaque $\ket{\phi_c}$ est un vecteur complexe plein de $\mathbb{C}^{2^{n_{\text{qubits}}}}$, renormalisé à l'usage. Les références ne sont plus contraintes à la sous-variété des états produits.
+    \item \emph{Fonction de coût corrigée.}
+    \[
+    \mathcal{C}(\theta, \Phi) \;=\; \underbrace{\tfrac{1}{N}\sum_{i=1}^{N}\bigl(1 - \mathrm{smax}_\tau(\mathcal{F}_{i\cdot})\bigr)^2}_{\text{couverture}}
+    \;+\; \tfrac{1}{2}\,\underbrace{\tfrac{1}{k^2}\,\bigl\|\Phi\Phi^\dagger - I_k\bigr\|_F^2}_{\text{séparation}}
+    \]
+    où $\mathrm{smax}_\tau$ est un substitut lisse de $\max_c \mathcal{F}_{ic}$. Le terme de \emph{couverture} pousse chaque échantillon à s'affecter franchement à un cluster ; le terme de \emph{séparation} remplace la pénalité mal posée $\sum_c \mathcal{F}_{ic} = 1$ par la contrainte que les états de cluster soient deux à deux orthonormés ($\Phi\Phi^\dagger \approx I_k$), condition sous laquelle les fidélités somment effectivement à $1$.
+    \item \emph{Tête de détection inchangée.} Chaque point reçoit le score $1 - \max_c \mathcal{F}_{ic}$ ; on balaye ensuite le seuil de coupure et on retient celui qui maximise le $F_1$, exactement comme pour le VQC de base et le $k$-means.
+\end{itemize}
+
+Nous appliquons ce modèle amélioré au même sous-ensemble de $200$ transactions (dont $10$ fraudes), avec les mêmes hyperparamètres ($n = 6$ qubits, projection ACP identique). La figure~\ref{fig:qcl-improved-clusters} montre l'affectation des points aux clusters sur les trois composantes principales, la figure~\ref{fig:qcl-improved-curve} la courbe d'évolution du $F_1$ en fonction du seuil, et le tableau~\ref{tab:qcl-improved-results} récapitule les scores au seuil optimal.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{".png/Improved QVC points.png"}
+\caption{Clustering quantique variationnel \emph{amélioré} sur les mêmes $200$ transactions, visualisé dans l'espace des trois composantes principales.}
+\label{fig:qcl-improved-clusters}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{".png/Improved QVC curve.png"}
+\caption{Évolution du score $F_1$ du VQC amélioré en fonction du seuil de confiance $\tau$.}
+\label{fig:qcl-improved-curve}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\hline
+Métrique & Valeur \\
+\hline
+Seuil optimal $\tau^\star$ & $0{,}9853$ \\
+$F_1$ & $0{,}6087$ \\
+Précision & $0{,}5385$ ($7$ TP / $13$ signalés) \\
+Rappel & $0{,}7000$ ($7$ TP / $10$ fraudes) \\
+Transactions signalées & $13 / 200$ \\
+\hline
+\end{tabular}
+\caption{Résultats optimaux du clustering quantique variationnel \emph{amélioré} sur le sous-ensemble de $200$ transactions.}
+\label{tab:qcl-improved-results}
+\end{table}
+
+\paragraph{Bilan.} Cette version corrigée atteint $F_1 = 0{,}61$ (contre $0{,}58$ pour le VQC de base), avec un rappel identique ($0{,}70$) mais une précision légèrement améliorée ($0{,}538$ contre $0{,}500$). Le gain, réel mais modeste, confirme que l'intrication, les amplitudes complexes et la contrainte d'orthonormalité apportent une expressivité supplémentaire ; il reste toutefois insuffisant pour combler l'écart avec le $k$-means sur ce jeu, et nous tourne naturellement vers un algorithme quantique plus spécifiquement conçu pour la détection d'anomalies, le Q-OCSVM présenté dans la section suivante.
 
 
 
