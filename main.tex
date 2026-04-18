@@ -85,6 +85,37 @@ Nous avons travaillé sur deux jeux de données complémentaires. Le premier, fo
 
 \section{Techniques de preprocessing}
 
+Le but du machine learning est de faire de l'apprentissage à partir de notre jeu de données. Cependant, une étape clé en amont de l'apprentissage est de modifier ce jeu de données pour le rendre plus exploitable, plus performant, plus apte à révéler de l'information. Ainsi nous présentons plusieurs méthodes dites de Preprocessing pour optimiser notre jeu de données : SMOTE, Tomek Links, PCA et RFE. Voici en quoi ils consistent et quel est leur intérêt : \\
+    
+    \begin{itemize}
+
+\item  SMOTE (Synthetic Minority Over-sampling TEchnique) : concerne l'apprentissage supervisé, c'est-à-dire qu'il nécessite des données labellisées (fraude ou non). L'idée est que, dans un cas qui arrive souvent où dans nos labels il y a peu de données frauduleuses, alors l'apprentissage est peu efficace car il compare souvent des données non frauduleuses entre elles et les cas de fraude sont donc rares, donc plus enrichissants. Ainsi le but est de rééquilibrer les proportions artificiellement. Pour la détection de fraude, on a souvent moins de 0.1 \% des données qui sont frauduleuses. L'idée est de plutôt s'approcher d'un ratio 99 \% - 1\% ou 95 \% - 5\%. Pour cela, on prend une paire de données frauduleuses et on ajoute à notre base de données une donnée frauduleuse qui se trouve à leur milieu dans le plan. On peut également choisir un barycentre différent ou le prendre de manière aléatoire. L'idée étant que notre nouveau point est proche de données frauduleuses, il est donc très suspect d'être frauduleux. \\
+
+\item  Tomek Links : concerne également l'apprentissage supervisé mais agit à l'inverse de SMOTE pour supprimer quelques points du plan pour optimiser l'apprentissage. Dans un cas comme le nôtre, où il y a une dissymétrie brutale entre le nombre de labels fraude et non fraude, on cherche à préserver au mieux nos données les plus intéressantes qui sont celles ayant le label fraude. Ainsi on élimine du plan les points non fraude qui sont trop proches des points fraude. On dit qu'une paire de points du plan forme un Tomek Link si chacun est le plus proche voisin de l'autre. Si on a une paire fraude-non fraude qui forme un Tomek Link, on supprime le point non fraude. La surreprésentation des points non fraude fait que la perte n'est pas significative tandis qu'on protège l'information contenue dans les labels fraude. On peut ensuite tout à fait itérer ce procédé. \\
+
+\item PCA (Principal Component Analysis) : cet algorithme réduit le nombre de paramètres, c'est-à-dire la dimension du plan, et bascule dans un nouveau système de coordonnées pour optimiser l'accessibilité à l'information de la base de données. La trentaine de paramètres initiaux est superflue. On ne veut garder que les éléments les plus intéressants pour notre apprentissage et on dispose d'un critère simple de sélection. On calcule la matrice de covariance de nos paramètres. Puis on sélectionne le sous-espace propre associé aux plus grandes valeurs propres (plus grandes variances, donc avec le moins de redondance), ce qui est immédiat à faire après diagonalisation. Les vecteurs propres associés que nous prenons pour nouveaux paramètres sont orthonormés, ce qui garantit l'indépendance et la singularité des informations qu'on peut y exploiter. \\
+
+\item RFE (Recursive Feature Elimination) : cet algorithme tout comme le précédent vise à réduire le nombre de paramètres. On applique un algorithme de machine learning sur notre jeu de données pour faire notre apprentissage (par exemple l'arbre de décision) puis on sélectionne le paramètre ayant un pouvoir de décision le plus faible, c'est-à-dire celui qui est le moins retenu quand on décide de la nature (fraude ou non) d'un nouveau point. Ce paramètre est ensuite éliminé et on recommence notre apprentissage de zéro. L'idée est d'itérer ce procédé pour finir avec un nombre restreint de paramètres (environ une dizaine). \\
+
+
+\end{itemize}
+
+\textbf{Ordre de la pipeline preprocessing} : l'ordre dans lequel on applique les algorithmes a son importance, ils ont été présentés dans l'ordre de la pipeline, voici pourquoi :\\
+
+\begin{itemize}
+
+\item SMOTE puis Tomek Links. Le SMOTE crée des données synthétiques entre les points existants. Le problème, c'est qu'il crée souvent des points bruités qui empiètent sur la classe majoritaire. En passant les Tomek Links après, on supprime les points qui sont trop proches les uns des autres entre les deux classes. Cela nettoie la frontière de décision que le SMOTE a rendue floue.\\
+
+\item PCA ensuite. La PCA cherche à maximiser la variance. Si on fait la PCA avant de rééquilibrer les classes, elle sera totalement biaisée par la classe majoritaire. En faisant la PCA après le rééquilibrage et le nettoyage, on s'assure que les composantes principales représentent bien la structure des deux classes de manière équitable.\\
+
+\item RFE après PCA. RFE est très coûteux car il nécessite d'entraîner l'algorithme à chaque fois. Ainsi on l'utilise pour affiner. Le seul bémol d'utiliser RFE après PCA, c'est qu'on perd l'interprétation heuristique qu'on peut faire sur l'importance d'un paramètre : l'œil humain ne peut plus lire des explications "naturelles". \\
+
+\end{itemize}
+
+Bien que la nécessité de faire du Preprocessing n'est plus à démontrer, il reste encore plusieurs indéterminations. Quels algorithmes faut-il mettre dans la pipeline ? Faut-il tous les prendre ou seulement certains parmi les 4 ? Ensuite, pour chaque algorithme gardé, il faut décider à quelle intensité on l'utilise en choisissant les paramètres comme le nombre de données frauduleuses à rajouter via SMOTE par exemple. \\
+
+Enfin il est également possible de rendre ces algorithmes quantiques (par exemple QSMOTE \cite{SMOTE2025}), c'est-à-dire agissant sur les vecteurs dans l'espace des états. Ou bien nous les utilisons pour optimiser notre base de données avant l'encodage quantique des vecteurs, ou bien nous les utilisons après l'encodage quantique, sur les vecteurs de notre FeatureMap. Le prétraitement post-mapping permet d'opérer directement sur la structure topologique de l'Espace de Hilbert, facilitant l'extraction de corrélations quantiques complexes qui resteraient cachées dans l'espace euclidien originel. 
+
 
 \section{Algorithmes non supervisés}\label{sec:clustering}
 
@@ -381,6 +412,9 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 
 
 \begin{thebibliography}{99}
+
+\bibitem{SMOTE2025}
+    J. Thompson et al. 2025. A Quantum Approach to Synthetic Minority Oversampling Technique (SMOTE). Quantum Machine Intelligence.
 
 \bibitem{chawla2002smote} N.~V. Chawla, K.~W. Bowyer, L.~O. Hall, W.~P. Kegelmeyer, \textit{SMOTE: Synthetic Minority Over-sampling Technique}, Journal of Artificial Intelligence Research, vol.~16, pp.~321--357, 2002.
 
