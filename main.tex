@@ -420,11 +420,7 @@ Transactions signalées & $15 / 200$ \\
 \label{tab:qcl-v3-results}
 \end{table}
 
-\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM.
-
-
-
-
+\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM
 
 \subsection{Rappels théoriques : SVM classique et astuce du noyau}
 \label{subsec:svm-classique}
@@ -554,7 +550,123 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
     \end{itemize}
 \end{enumerate}
 
-\section{Réseaux à couches}
+\section{Réseaux à de neurones}
+
+Les réseaux de neurones sont un cas particulier de réseaux à couches dans lequel une couche réalise typiquement une transformation affine suivie d’une non-linéarité :
+\[
+\mathcal{L}(\mathbf{x}) = \phi(W\mathbf{x} + \mathbf{b}),
+\]
+où $W$ est une matrice de poids, $\mathbf{b}$ un biais, et $\phi$ une fonction d’activation. L’empilement de plusieurs couches permet de construire des représentations hiérarchiques des données, chaque niveau extrayant des caractéristiques plus abstraites que le précédent.
+Dans le cadre quantique, comme déjà mentionné dans la section 4, cette idée se transpose sous la forme de circuits paramétrés organisés en blocs successifs. Nous nous interreserons dans la suite aux réseaux de neurones adversariaux, un modèle de réseaux de neurones pertinent pour la détection d'anomalie.
+
+\subsection{Réseaux de neurones adversariaux}
+
+Les réseaux de neurones adversariaux, connus sous le nom de Genarative Adversarial Networks (GANs) en anglais, sont une classe d'algorithmes d'apprentissage non supervisé. Introduis en 2014 par Goodfellow et al. 2014, il s'agit d'un modèle génératif où deux réseaux de neuronnes sont placés en compétition dans un scénario de théori des jeux. L'un génère un échantillion, tandis que son adversaire (discriminateur), essaie de détecter s'il est réel ou pas. En repetant cet exercice, le discriminateur s'entraîne à discriminer le vrai du faux tandis que le générateur, se rapproche de la réalité. Le générateur attribue un score compris entre 0 et 1 : un score de 1 signifie que les données semblent réelles et un score de 0 signifie qu’elles sont fausses.
+Le générateur utilise ensuite les commentaires du discriminateur pour s’améliorer, en essayant de créer des données plus réalistes \cite{DanielGANs}. 
+Ce modèle a connu de nombreux succès en imagerie et en neurosciences.  
+
+\subsubsection{Théorie}
+
+Mathématiquement parlant, un GAN est basé sur un jeux à somme nulle entre deux joueurs, défini sur un espace de probabilité $ ( \Omega, \mathcal{B}, \mu_{r})$. L'ensemble des stratégies du générateur décrit l'ensemble des mesures de probabilité $ \mu_{G}$ sur $ ( \Omega, \mathcal{B})$ et l'ensemble des stratégies du discriminateur décrit l'ensemble des fonctions mesurables $D : \Omega \rightarrow [0,1]$. Le générateur et le discriminateur visent respectivement à minimiser et à maximiser une fonction de gain, soit le problème minmax: 
+$$ \underset{G}{\min}\;\underset{D}{\max}\; L(\mu_{G},D)=
+\mathbb{E}_{x \sim \mu_{\mathrm{ref}}}\bigl[\ln D(x)\bigr]
++
+\mathbb{E}_{x \sim \mu_G}\bigl[\ln(1 - D(x))\bigr].$$
+Un \href{https://fr.wikipedia.org/wiki/R%C3%A9seaux_antagonistes_g%C3%A9n%C3%A9ratifs}{théorème de base du GAN} nous assure de la convergence de l'algorithme en adaptant à chaque étape le discriminateur par: 
+$D^*(x) = \frac{d\mu_r}{d(\mu_r + \mu_G)}(x)$. Mais en pretique, on observe des problèmes de convergence et le processus peut s'avérer coûteux en calculs sur des jeux de données de grande dimenssion comme dans notre cas.
+
+Heuresement, des travaux sur des variantes quantiques ont permis de mettre en oeuvre une approche quantique qui améliore considérablement la complexité de calcul \cite{QGANs}. Dans le formalisme quantique, la fonction de s'exprime par:
+ \[
+\max_{\hat{U}_G} \; \max_{\hat{U}_D} \;
+\operatorname{Tr}\!\big(\hat{\rho}_r \hat{U}_D\big)
++
+\operatorname{Tr}\!\big(\hat{\rho}_g \hat{U}_G \hat{U}_D\big).
+\]
+où $\hat{U}_D$ et $\hat{U}_G$ désignent respectivement les opérateurs quantiques correspondant respectivement au discrimineur et au générateur dans l'espace de hilbert $\mathcal{H}$ dans lequel sont encodées les données et $\hat{\rho}_g$ et $\hat{\rho}_r$ font référence aux densités de données réelles et générées.
+
+$\hat{U}_D$ et $\hat{U}_G$ s'expriment en employant des transformations unitaires impliquant leurs hamilitoniens respectifs, augmentés d'un terme supplémentaires: 
+\[
+\hat{U}_G(t) = e^{-i(\hat{H}_G +\lambda \hat{V_G})t} ,~
+\hat{U}_D(t) = e^{-i(\hat{H}_D+\lambda \hat{V_D})t}.
+\].
+
+Les paramètres $\hat{V_G}$ et $\hat{V_D}$ permettent d’augmenter l’espace des transformations accessibles, en intégrant des interactions quantiques plus complexes, en particulier de l’intrication ou des corrélations d’ordre supérieur. Le paramètre lambda permet donc de contrôler l'intensité de cette expressivité. 
+
+\subsubsection{QGANs pour la détection de Fraude}
+
+Il convient de préciser que les GANs ont été à l'origine conçus pour des problèmes d'imageries comme la génération d'image, la reconnaissance faciale, la détection d'objets. Ce n'est que longtemps après que le paradigme s'est étendue à la détection de fraude. En pratique, qu'est-ce que ça donne? Inspiré par (Seyyede, Ali \& Saeed, 2023) \cite{GANs}, on introduit un model à trois composantes principales: 
+
+\begin{itemize}
+    \item{\textbf{Génération d'anomalies}}: La première composante est un modèle de QGAN, utilisé afin de générer des observations synthétiques atypiques. Ces données artificielles sont conçues pour être difficilement distinguables des données réelles, tout en se situant en périphérie de la distribution, ce qui permet de simuler des comportements potentiellement frauduleux.
+
+    \item{\textbf{Augmentation des données}}: La seconde étape est la création d'un ensemble de données étiqueté standard, réalisée en trois étapes. Dans la première étape, les échantillons aberrants produits par la première composante sont ajoutés à la fin des données réelles. Il convient de noter que le nombre d'échantillons artificiels aberrants est considéré comme égal au nombre d'échantillons réels pour l'équilibre des données. Dans la deuxième étape, tous les échantillons sont étiquetés selon l'une des deux approches possibles : (1) utiliser des algorithmes d'apprentissage automatique pour estimer une étiquette pseudo-cible pour les échantillons, ou (2) attribuer des étiquettes sujettes à la fraude pour les échantillons synthétiques et des étiquettes sans fraude pour les échantillons dans les données principales. Dans la dernière étape, tous les échantillons sont mélangés pour garantir une distribution appropriée des échantillons dans les ensembles de données d'entraînement et de test, ce qui conduit à une meilleure généralisation et à l'évitement du surapprentissage.
+
+    \item{\textbf{Détection de Fraude}} Enfin, une troisième étape consiste à appliquer une méthode de classification sur le dataset synthétisé à l'étape précédente de classification binaire. Ce dernier apprend à distinguer les comportements normaux des anomalies synthétiques, permettant ainsi de détecter des états financiers frauduleux. On fait le choix d'utiliser un model XGBOD pour la classification.
+    La figure~\ref{fig:qgan-pipeline} illustre les trois étapes principales du modèle. 
+    
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tikzpicture}[
+    scale=0.75,
+    transform shape,
+    node distance=1.2cm and 1.8cm,
+    box/.style={draw, rounded corners, align=center, minimum height=0.9cm, minimum width=2.4cm, font=\small},
+    gen/.style={box, fill=blue!10},
+    disc/.style={box, fill=red!10},
+    proc/.style={box, fill=orange!15},
+    model/.style={box, fill=green!15},
+    quant/.style={box, fill=purple!10},
+    arr/.style={-{Latex[length=2mm]}, thick}
+]
+
+% Input
+\node (real) {Données réelles $\mathbf{x}$};
+
+% Encodage
+\node[quant, right=of real] (encode) {Encodage\\ $|\psi(x)\rangle = U_\Phi(x)|0\rangle$};
+
+% Latent
+\node[gen, above=of encode] (z) {Latent $z \sim p(z)$};
+
+% Generateur
+\node[quant, right=of encode] (gen) {Générateur\\ $\hat{U}_G$};
+
+% Discriminateur
+\node[quant, right=of gen] (disc) {Discriminateur\\ $\hat{U}_D$};
+
+% Post-processing
+\node[proc, below=of disc] (concat) {Concaténation};
+\node[proc, below=of concat] (label) {Pseudo-labels};
+\node[proc, below=of label] (shuffle) {Mélange};
+
+\node[proc, left=of shuffle] (features) {Feature selection};
+
+% Classifieur
+\node[model, left=of features] (clf) {Classifieur\\ XGBOD};
+
+\node[model, below=of clf] (output) {Fraude / Non-fraude};
+
+% Arrows
+\draw[arr] (real) -- (encode);
+\draw[arr] (encode) -- (gen);
+\draw[arr] (z) -- (gen);
+\draw[arr] (gen) -- (disc);
+\draw[arr] (disc) -- (concat);
+\draw[arr] (concat) -- (label);
+\draw[arr] (label) -- (shuffle);
+\draw[arr] (shuffle) -- (features);
+\draw[arr] (features) -- (clf);
+\draw[arr] (clf) -- (output);
+
+\end{tikzpicture}
+}
+\caption{Pipeline hybride de détection de fraude avec un QGAN.}
+\label{fig:qgan-pipeline}
+\end{figure}
+
 \label{sec:cascade}
  
 \subsection{Motivation et positionnement dans la pipeline}
@@ -866,6 +978,19 @@ W.~N. Street, W.~H. Wolberg et O.~L. Mangasarian, \textit{Nuclear feature extrac
 \bibitem{scholkopf2001ocsvm} B.~Schölkopf, J.~C.~Platt, J.~Shawe-Taylor, A.~J.~Smola, R.~C.~Williamson, \textit{Estimating the Support of a High-Dimensional Distribution}, Neural Computation, vol.~13, pp.~1443--1471, 2001.
 
 \bibitem{schuld2019qml} M.~Schuld, N.~Killoran, \textit{Quantum Machine Learning in Feature Spaces}, Physical Review Letters, vol.~122, 040504, 2019.
+
+\bibitem{Singh2025} Navneet Singh and Shiva Raj Pokhrel, IEEE, Senior Member \textit{Modeling Feature Maps for Quantum Machine
+Learning}, arXiv:2501.08205v1 août 2025.
+
+\bibitem{Schuld2020} M.~Schuld, A.~Bocharov, K.~M.~Svore, and N.~Wiebe, “Circuit-centric quantum classifiers,” Physical Review A, vol. 101, no. 3, p. 032308,
+2020.
+
+\bibitem{DanielGANs} Daniel Herr et al 2021 Quantum Sci. Technol. 6 045004
+
+\bibitem{GANs} Seyyede~Zahra~Aftabi, Ali~Ahmadi, Saeed~Farzi, "Fraud detection in financial statements using data mining and GAN models", Expert Systems With Applications 227 (2023) 120144.
+
+\bibitem{QGANs} "Quantum Generative Adversarial Networks: Bridging Classical and Quantum Realms", arXiv:2312.09939v1 [quant-ph] 15 Dec 2023
+\end{thebibliography}
 
 \bibitem{Rousseeuw1987} 
 P.~J.~Rousseeuw, \textit{Silhouettes: a Graphical Aid to the Interpretation and Validation of Cluster Analysis}, Journal of Computational and Applied Mathematics, vol.~20, pp.~53--65, 1987. \url{https://doi.org/10.1016/0377-0427(87)90125-7}.
