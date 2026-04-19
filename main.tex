@@ -387,7 +387,46 @@ Transactions signalées & $13 / 200$ \\
 \label{tab:qcl-improved-results}
 \end{table}
 
-\paragraph{Bilan.} Cette version corrigée atteint $F_1 = 0{,}61$ (contre $0{,}58$ pour le VQC de base), avec un rappel identique ($0{,}70$) mais une précision légèrement améliorée ($0{,}538$ contre $0{,}500$). Le gain, réel mais modeste, confirme que l'intrication, les amplitudes complexes et la contrainte d'orthonormalité apportent une expressivité supplémentaire ; il reste toutefois insuffisant pour combler l'écart avec le $k$-means sur ce jeu, et nous tourne naturellement vers un algorithme quantique plus spécifiquement conçu pour la détection d'anomalies, le Q-OCSVM présenté dans la section suivante.
+\paragraph{Bilan.} Cette version corrigée atteint $F_1 = 0{,}61$ (contre $0{,}58$ pour le VQC de base), avec un rappel identique ($0{,}70$) mais une précision légèrement améliorée ($0{,}538$ contre $0{,}500$). Le gain, réel mais modeste, confirme que l'intrication, les amplitudes complexes et la contrainte d'orthonormalité apportent une expressivité supplémentaire ; il reste toutefois insuffisant pour combler l'écart avec le $k$-means sur ce jeu, ce qui nous a amené à pousser l'approche encore plus loin dans une dernière version décrite ci-après.
+
+\subsubsection*{Clustering quantique variationnel v3}
+
+Enfin, nous présentons une dernière amélioration du clustering quantique, qui s'appuie sur la version précédente en lui ajoutant deux ingrédients : un terme de coût qui préserve la structure locale des données, et un entraînement robuste empêchant les fraudes de contaminer le signal d'apprentissage.
+
+\paragraph{Changements par rapport à la version améliorée.}
+\begin{itemize}
+    \item \emph{Préservation des similarités.} Nous ajoutons au coût un terme $\mathcal{C}_{\text{sim}} = \frac{1}{|E|}\sum_{(i,j)\in E}\!\bigl(1 - |\!\braket{\psi_i|\psi_j}\!|^2\bigr)^2$, sommé sur les arêtes $E$ d'un graphe des $k_{\text{NN}} = 5$ plus proches voisins calculé sur les données pré-encodées. Ce terme force les points proches dans l'espace initial à le rester dans l'espace de Hilbert, ce qui injecte explicitement l'information de distance qui n'entrait jusqu'ici qu'implicitement via la continuité du plongement.
+    \item \emph{Entraînement robuste par élagage.} Avant l'optimisation, nous appliquons un $k$-means classique sur les données pré-encodées et écartons les $5~\%$ de points les plus éloignés de leur centroïde. Ces points, supposés être des fraudes en puissance, sont exclus à la fois du terme de couverture et du graphe $E$. Sans cet élagage, la couverture inciterait l'optimiseur à aspirer les fraudes dans les clusters et ferait s'effondrer la capacité de détection ; avec lui, les ancres se calent sur la masse saine. Les points écartés sont en revanche toujours scorés à l'inférence.
+    \item \emph{Tête de détection inchangée.} On conserve $s_i = 1 - \max_c \mathcal{F}_{ic}$ et le balayage du seuil maximisant le $F_1$.
+\end{itemize}
+
+Nous appliquons ce modèle au même sous-ensemble de $200$ transactions. Les résultats sont rassemblés sur la figure~\ref{fig:qcl-v3-plots} (affectations, étiquettes réelles et courbe $F_1$ vs seuil) et dans le tableau~\ref{tab:qcl-v3-results}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{".png/QVC v3 plots.png"}
+\caption{VQC v3 : affectation aux $k=3$ clusters (gauche), étiquettes réelles (centre), et évolution du $F_1$ en fonction du seuil de détection $\tau$ (droite). Les points sont projetés sur les trois premières composantes ACP.}
+\label{fig:qcl-v3-plots}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lc}
+\hline
+Métrique & Valeur \\
+\hline
+Seuil optimal $\tau^\star$ & $0{,}9275$ \\
+$F_1$ & $0{,}8000$ \\
+Précision & $0{,}6667$ ($10$ TP / $15$ signalés) \\
+Rappel & $1{,}0000$ ($10$ TP / $10$ fraudes) \\
+Transactions signalées & $15 / 200$ \\
+\hline
+\end{tabular}
+\caption{Résultats optimaux du clustering quantique variationnel \emph{v3} sur le sous-ensemble de $200$ transactions.}
+\label{tab:qcl-v3-results}
+\end{table}
+
+\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM.
 
 
 
