@@ -574,6 +574,14 @@ Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline e
     \item Algorithme hybride autosupervisé : Q-OCSVM + Random Forest 
     \item Algorithme quantique supervisé : Preprocessing + Q-SVM
 \end{enumerate}
+
+
+
+Le tableau de scores présenté synthétise les performances obtenues sur le jeu de données breast cancer \cite{street1993nuclear}, qui regroupe un total de 569 échantillons. Contrairement aux expérimentations portant sur la fraude bancaire, nous avons ici choisi un jeu de données traite une problématique médicale où les étiquettes correspondent aux classes diagnostiques du dataset : on dénombre 357 échantillons de label négatif (maladie bénigne) et 212 échantillons en de label positif (maladie maligne). Nous l'avons choisi car il est de petite taille avec un bon équilibre des classes ce qui permet d'obtenir de bons résultats sans beaucoup de puissance de calcul. L'intégralité du jeu de données a été conservée sans recours au sous-échantillonnage. Les données ont été partitionnées selon un ratio 70/30, délimitant ainsi les ensembles d'entraînement et de test, ce dernier étant ensuite subdivisé pour fournir les points de validation et d'évaluation finale. Afin de projeter les caractéristiques de ce dataset dans un espace d'embedding de 4 dimensions, une pipeline de prétraitement standardisée a été appliquée : elle comprend une imputation par la médiane, une standardisation des variables numériques et une réduction de dimension via PCA. Pour les modèles quantiques, ces coordonnées sont remises à l'échelle dans l'intervalle $[0, \pi]$ pour permettre le calcul du noyau quantique. Enfin, bien que le déséquilibre initial soit modéré, les branches supervisées appliquent un traitement local par SMOTETomek sur les données d'entraînement afin d'alimenter les modèles avec des classes strictement paritaires.
+
+
+
+
 Voici les résultats sur le dataset : 
 
 \subsection{Application au jeu de données de la BNP}
@@ -639,6 +647,10 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 
 \bibitem{revolut_kaggle} \textit{Revolut Bank Transactions Fraud Detection Dataset}, jeu de données public, Kaggle. \texttt{https://www.archambault.ca/livres/5-ans-de-r}%C3%A9flexions-journal-%C3%A0-compl%C3%A9ter-nul-besoin-d'%C3%AAtre-%C3%A9crivain-pour-faire-de-sa-vie-un-roman-n-%C3%A9d/collectif/9782501097840/?id=1641238}.
 
+
+\bibitem{street1993nuclear} 
+W.~N. Street, W.~H. Wolberg et O.~L. Mangasarian, \textit{Nuclear feature extraction for breast cancer diagnosis}, Biomedical image processing and biomedical visualization, vol. 1905, pp. 132--144, 1993.
+
 \bibitem{cortes1995svm} C.~Cortes, V.~Vapnik, \textit{Support-vector networks}, Machine Learning, vol.~20, pp.~273--297, 1995.
 
 \bibitem{boser1992kernel} B.~E.~Boser, I.~M.~Guyon, V.~N.~Vapnik, \textit{A training algorithm for optimal margin classifiers}, Proceedings of the fifth annual workshop on Computational learning theory, pp.~144--152, 1992.
@@ -646,6 +658,12 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 \bibitem{scholkopf2001ocsvm} B.~Schölkopf, J.~C.~Platt, J.~Shawe-Taylor, A.~J.~Smola, R.~C.~Williamson, \textit{Estimating the Support of a High-Dimensional Distribution}, Neural Computation, vol.~13, pp.~1443--1471, 2001.
 
 \bibitem{schuld2019qml} M.~Schuld, N.~Killoran, \textit{Quantum Machine Learning in Feature Spaces}, Physical Review Letters, vol.~122, 040504, 2019.
+
+\bibitem{Rousseeuw1987} 
+P.~J.~Rousseeuw, \textit{Silhouettes: a Graphical Aid to the Interpretation and Validation of Cluster Analysis}, Journal of Computational and Applied Mathematics, vol.~20, pp.~53--65, 1987. \url{https://doi.org/10.1016/0377-0427(87)90125-7}.
+
+\bibitem{Shahapure2020} 
+K.~R.~Shahapure, C.~Nicholas, \textit{Cluster Quality Analysis Using Silhouette Score}, IEEE 7th International Conference on Data Science and Advanced Analytics (DSAA), pp.~747--748, 2020. \url{https://doi.org/10.1109/DSAA49011.2020.00096}.
 
 \end{thebibliography}
 
