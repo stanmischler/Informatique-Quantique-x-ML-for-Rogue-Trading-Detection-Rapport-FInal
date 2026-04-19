@@ -81,6 +81,34 @@ Nous avons travaillé sur trois jeux de données complémentaires.
 
 \section{Données de la BNP}\label{sec:bnp}
 
+Dans le cadre de notre partenariat avec BNP Paribas, nous exploitons un jeu de données transactionnelles
+issu des activités de marché. Ce dataset brut recense un historique de 500 0000 transactions financières (trades)
+caractérisées par des dimensions temporelles, financières et structurelles. Il était essentiel d’assurer un pré
+traitement (preprocessing) des données afin de les rendre exploitable. L’objectif primordial du préprocessing
+était la réduction de la dimensionnalité afin de ne soumettre aux algorithmes de clustering que les données
+strictement nécessaires à la caractérisation du risque. En effet, en amont du traitement, pour chacun des trades
+nous disposions de près de 50 données. L’ampleur de notre jeu de données était telle que les algorithmes de
+clustering allaient être inefficaces.
+Les algorithmes de regroupement calculant des distances mathématiques, la présence de bruit (données in
+utiles) dilue la pertinence des résultats. Notre démarche a donc consisté à isoler exclusivement les attributs
+comportementaux (montants, délais, type de produit) et à éliminer systématiquement les données administra
+tives ou les identifiants techniques, qui, bien qu’utiles à la gestion bancaire, constituent des "polluants" pour la
+détection statistique d’anomalies.
+La phase de preprocessing a mis en lumière la complexité des données brutes :
+Haute cardinalité et Bruit : Une prépondérance de colonnes à identifiants uniques (Deal ID, Trade Ref) qui
+n’apportent aucune information structurelle pour un modèle.
+L’hétérogénéité des formats : Des incohérences dans les saisies manuelles (ex : colonne DEAL DIRECTION
+mélangeant "BUY", "B", "0", etc.) nécessitant une normalisation. Il était primordiale d’uniformiser les données
+avant de les utilsier
+Écarts d’échelle : La coexistence de montants en millions d’euros avec des variables binaires, risquant de
+biaiser le calcul des distances.
+Pour garantir la robustesse du modèle, un pipeline de préprocessing rigoureux a été mis en œuvre. Nous avons
+procédé à un nettoyage sélectif en éliminant les variables de bruit (IDs techniques) et les champs lacunaires. Une
+phase de Feature Engineering a permis de transformer les données brutes en indicateurs de risque pertinents
+(calcul du délai de saisie, extraction des heures et jours de semaine, durée de maturité). Enfin, les données
+catégorielles ont été standardisées puis encodées (One-Hot Encoding), et l’ensemble des variables numériques a
+été mis à l’échelle (Scaling) pour assurer une contribution équilibrée de chaque facteur dans la formation des
+clusters.
 
 \section{Techniques de preprocessing}
 
