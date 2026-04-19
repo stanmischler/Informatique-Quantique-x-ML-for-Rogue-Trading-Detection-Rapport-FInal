@@ -555,6 +555,171 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
 \end{enumerate}
 
 \section{Réseaux à couches}
+\label{sec:cascade}
+ 
+\subsection{Motivation et positionnement dans la pipeline}
+ 
+Les sections précédentes ont présenté deux grandes familles d'algorithmes non supervisés : le clustering quantique variationnel (VQC, section~\ref{subsec:vqc-clustering}) et le Q-OCSVM (section~\ref{subsec:q-ocsvm}). Ces approches partagent une même logique — modéliser le comportement normal des transactions sans recourir à des labels — et constituent le c\oe ur de notre contribution quantique. Leur limite commune est cependant bien identifiée : en l'absence de labels, le signal de détection reste flou, et le calibrage du seuil de décision ($\tau$ dans le VQC, $\nu$ dans l'OCSVM) repose sur des heuristiques ou sur un sous-ensemble annoté a posteriori.
+ 
+Nous introduisons ici une troisième brique, de nature entièrement classique et supervisée, qui remplit un rôle complémentaire dans la pipeline modulaire décrite en section~\ref{sec:bnp} : la \emph{cascade à couches} (\textit{layered cascade}). Son principe est radicalement différent des approches précédentes — elle exploite les labels d'entraînement disponibles sur les jeux de données publics pour apprendre une frontière de décision progressive — mais elle s'inscrit dans la même architecture \textit{plug \& play} : elle respecte la même interface d'entrée/sortie que les briques quantiques et peut s'y substituer ou s'y combiner dans le schéma d'assemblage décrit en section~\ref{sec:pipeline}.
+ 
+La cascade remplit également un rôle méthodologique essentiel : elle constitue la \textbf{baseline supervisée} à laquelle nous comparons les performances des algorithmes quantiques dans la section~\ref{sec:tests}. Sans cette référence, il serait impossible de mesurer l'apport — ou l'écart — des briques quantiques par rapport à des méthodes classiques éprouvées. Ce rôle est analogue à celui que jouent le $k$-means classique face au VQC (voir tableau~\ref{tab:kmeans-results}) ou le Random Forest dans le benchmark de la section~\ref{sec:tests}.
+ 
+\subsection{Principe de la détection en cascade}
+ 
+L'idée directrice est simple : plutôt que d'appliquer un unique modèle lourd à l'ensemble des transactions, on enchaîne plusieurs classifieurs de complexité croissante, chacun ne traitant que les cas que le modèle précédent a jugés suspects. Cette architecture est motivée par deux contraintes propres à la détection de fraude.
+ 
+La première est le \emph{déséquilibre extrême des classes} : les fraudes représentent typiquement moins de $0{,}2\,\%$ des transactions dans le jeu de données European Credit Card que nous utilisons pour le benchmarking. Un modèle unique appliqué à l'intégralité du flux est mécaniquement biaisé vers la classe majoritaire. Les briques de prétraitement (SMOTE, Tomek Links) décrites en section précédente corrigent partiellement ce biais à l'entraînement, mais pas à l'inférence, où le déséquilibre est structurel.
+ 
+La seconde contrainte est le \emph{compromis rappel/précision asymétrique} propre au domaine bancaire : bloquer la carte d'un client légitime (faux positif) a un coût d'expérience utilisateur mesurable, mais manquer une fraude (faux négatif) a un coût financier et réglementaire direct. La cascade permet de gérer ce compromis de manière granulaire, en ajustant indépendamment le seuil de chaque couche plutôt qu'un unique hyperparamètre global.
+ 
+\paragraph{Architecture générale.} La cascade est organisée en $L$ étages ordonnés du plus simple au plus complexe. Chaque étage $\ell$ reçoit un sous-ensemble $\mathcal{S}_\ell \subseteq \mathcal{X}$ en entrée, produit une probabilité de fraude $p_\ell(\vec{x})$ pour chaque élément, et passe à l'étage suivant uniquement les transactions vérifiant $p_\ell(\vec{x}) > \tau_\ell$, où $\tau_\ell$ est un seuil propre à chaque couche. Les transactions rejetées à l'étage $\ell$ sont définitivement classées comme légitimes. La décision finale de fraude est émise par le dernier étage $L$.
+ 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.8cm and 1.4cm,
+    box/.style={draw, rounded corners, align=center, minimum height=1cm, minimum width=2.6cm, font=\small},
+    lbox/.style={box, fill=green!10},
+    mbox/.style={box, fill=yellow!15},
+    hbox/.style={box, fill=red!10},
+    arr/.style={-{Latex[length=2mm]}, thick},
+    rejarr/.style={-{Latex[length=2mm]}, thick, dashed, gray}
+]
+\node[lbox] (l1) {\textbf{Couche 1}\\Régression\\Logistique\\$\tau_1 = 0{,}01$};
+\node[mbox, right=of l1] (l2) {\textbf{Couche 2}\\Réseau de\\neurones (MLP)\\$\tau_2 = 0{,}01$};
+\node[hbox, right=of l2] (l3) {\textbf{Couche 3}\\XGBoost\\(Expert)\\Décision dure};
+ 
+\node[above=0.6cm of l1, font=\small\itshape] (allin) {Toutes les transactions};
+\node[below=0.6cm of l1, font=\small, text=gray] (rej1) {Légitime (\textit{rejet})};
+\node[below=0.6cm of l2, font=\small, text=gray] (rej2) {Légitime (\textit{rejet})};
+\node[right=1.1cm of l3, font=\small] (out) {Fraude / Légitime};
+ 
+\draw[arr] (allin) -- (l1);
+\draw[arr] (l1) -- node[above, font=\scriptsize]{suspects} (l2);
+\draw[arr] (l2) -- node[above, font=\scriptsize]{suspects} (l3);
+\draw[arr] (l3) -- (out);
+\draw[rejarr] (l1.south) -- (rej1);
+\draw[rejarr] (l2.south) -- (rej2);
+\end{tikzpicture}
+\caption{Architecture de la cascade à trois couches. Les transactions rejetées à chaque étage sont définitivement classées comme légitimes, seuls les suspects progressent vers le classifieur suivant, plus complexe.}
+\label{fig:cascade-archi}
+\end{figure}
+ 
+\subsection{Description des trois couches}
+ 
+Nous implémentons une cascade à $L = 3$ étages sur le jeu de données European Credit Card (285~315 transactions, dont 492 fraudes, soit $0{,}172\,\%$). Le prétraitement appliqué en amont est celui décrit dans la section consacrée au preprocessing : un \texttt{RobustScaler} est appliqué aux colonnes \texttt{Amount} et \texttt{Time} — le \texttt{RobustScaler} étant préféré au \texttt{StandardScaler} car il est moins sensible aux montants extrêmes caractéristiques des fraudes — et le jeu est découpé en 80/20 avec stratification sur les labels. L'entraînement de chaque couche est réalisé \emph{exclusivement sur les données d'entraînement} ; le jeu de test reste entièrement invisible pendant tout l'apprentissage.
+ 
+\subsubsection*{Couche 1 : La Régression Logistique (le tamis)}
+ 
+La première couche est intentionnellement le modèle le plus simple et le plus rapide. Son rôle n'est pas de décider avec précision, mais de filtrer massivement les transactions manifestement légitimes tout en garantissant un rappel quasi parfait sur les fraudes.
+ 
+\paragraph{Modèle.} On entraîne une régression logistique avec l'option \texttt{class\_weight=`balanced'}, qui compense automatiquement le déséquilibre de classes en attribuant un poids inversement proportionnel à la fréquence de chaque classe. Le modèle est entraîné sur l'intégralité du jeu d'entraînement.
+ 
+\paragraph{Seuil de filtrage.} Le seuil est fixé à $\tau_1 = 0{,}01$ : toute transaction pour laquelle le modèle estime une probabilité de fraude supérieure à $1\,\%$ est transmise à la couche suivante. Ce seuil volontairement très bas garantit un rappel maximal — aucune fraude ne doit être perdue dès la première couche — au prix d'un nombre important de faux positifs transmis en aval.
+ 
+\paragraph{Effet.} En pratique, cette couche élimine environ $60$ à $70\,\%$ des transactions légitimes dès la première étape, réduisant drastiquement le volume de données que les couches suivantes, plus coûteuses, doivent analyser.
+ 
+\subsubsection*{Couche 2 : Le Réseau de Neurones MLP (l'analyste)}
+ 
+La deuxième couche est un réseau de neurones multicouche (\textit{Multi-Layer Perceptron}, MLP), entraîné \emph{uniquement} sur les transactions que la régression logistique a jugées suspectes. Cette restriction est cruciale : en focalisant l'apprentissage sur les cas ambigus, le MLP développe une représentation interne spécifiquement adaptée à la zone de frontière difficile entre faux positifs tenaces et vraies fraudes.
+ 
+\paragraph{Architecture.} Deux couches cachées de tailles $32$ et $16$ neurones respectivement, avec activation \texttt{ReLU} et optimiseur \texttt{Adam}. La régularisation $L_2$ (paramètre \texttt{alpha}$= 10^{-4}$) prévient le surapprentissage sur le sous-ensemble réduit reçu en entrée. Le taux d'apprentissage est adaptatif (\texttt{learning\_rate=`adaptive'}), ce qui est pertinent car la taille du sous-ensemble varie selon les runs.
+ 
+\paragraph{Seuil de filtrage.} Le seuil est maintenu à $\tau_2 = 0{,}01$ : les réseaux de neurones produisant des probabilités généralement plus tranchées (proches de 0 ou 1), ce seuil bas est suffisant pour ne rien perdre tout en réduisant encore significativement le flux transmis à la couche finale.
+ 
+\subsubsection*{Couche 3 : XGBoost (l'expert)}
+ 
+La dernière couche est le modèle le plus puissant de la cascade. Elle ne reçoit qu'une infime fraction des données originales — les cas que ni la régression logistique ni le MLP n'ont su écarter — et doit trancher de manière définitive et précise.
+ 
+\paragraph{Modèle.} Un XGBoost avec 200 arbres (\texttt{n\_estimators=200}), un taux d'apprentissage faible (\texttt{learning\_rate=0.05}) pour une convergence stable, et \texttt{scale\_pos\_weight=20} pour compenser le déséquilibre résiduel dans le sous-ensemble. Ce paramètre est équivalent à indiquer au modèle que chaque fraude vaut 20 légitimes lors du calcul de la fonction de perte.
+ 
+\paragraph{Décision.} À ce stade, la décision est dure : le modèle produit un label binaire sans seuil intermédiaire. L'objectif est la précision maximale — ne confirmer comme fraude que ce qui l'est réellement — car les faux positifs résiduels à cet étage sont ceux qui déclencheront un blocage de carte.
+ 
+\subsection{Entraînement en cascade et absence de fuite de données}
+ 
+Un point crucial de l'implémentation concerne la rigueur du protocole d'entraînement. Chaque couche est entraînée sur un sous-ensemble de données d'entraînement \emph{différent} de celui de la couche précédente, mais le jeu de test reste entièrement invisible à toutes les étapes. La séquence est la suivante :
+ 
+\begin{enumerate}
+    \item La couche 1 (LogReg) est entraînée sur $\mathcal{X}_{\text{train}}$ complet.
+    \item On applique la couche 1 à $\mathcal{X}_{\text{train}}$ pour générer le sous-ensemble $\mathcal{X}_{\text{train},2} = \{\vec{x} \in \mathcal{X}_{\text{train}} \mid p_1(\vec{x}) > \tau_1\}$.
+    \item La couche 2 (MLP) est entraînée sur $\mathcal{X}_{\text{train},2}$.
+    \item On applique la couche 2 à $\mathcal{X}_{\text{train},2}$ pour générer $\mathcal{X}_{\text{train},3}$.
+    \item La couche 3 (XGBoost) est entraînée sur $\mathcal{X}_{\text{train},3}$.
+\end{enumerate}
+ 
+Cette procédure présente une subtilité : les couches 2 et 3 sont évaluées sur les données qui ont servi à les entraîner (étapes 3 et 5), ce qui crée un léger biais optimiste pendant l'entraînement. C'est précisément pourquoi l'évaluation finale se fait sur le jeu de test via la fonction d'inférence en cascade décrite ci-dessous, qui reproduit fidèlement le filtrage progressif sans aucune fuite.
+ 
+\subsection{Fonction d'inférence en cascade}
+ 
+À l'inférence, une nouvelle transaction $\vec{x}$ suit le chemin suivant :
+ 
+\begin{enumerate}
+    \item La couche 1 calcule $p_1(\vec{x})$. Si $p_1(\vec{x}) \leq \tau_1$, la transaction est classée légitime et le processus s'arrête.
+    \item Si $p_1(\vec{x}) > \tau_1$, la couche 2 calcule $p_2(\vec{x})$. Si $p_2(\vec{x}) \leq \tau_2$, la transaction est classée légitime et le processus s'arrête.
+    \item Si $p_2(\vec{x}) > \tau_2$, la couche 3 rend la décision finale binaire $\hat{y}_3(\vec{x}) \in \{0, 1\}$.
+\end{enumerate}
+ 
+La grande majorité des transactions (plus de $95\,\%$) sont traitées en une ou deux étapes seulement, ce qui rend la cascade extrêmement efficace en production : le modèle lourd (XGBoost) ne traite qu'une infime fraction du flux global.
+ 
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\hline
+Étage & Modèle & Seuil $\tau$ & Données reçues \\
+\hline
+1 & Régression Logistique & $0{,}01$ & $100\,\%$ des transactions \\
+2 & MLP (32--16 neurones, ReLU) & $0{,}01$ & $\sim 30\text{--}40\,\%$ \\
+3 & XGBoost (200 arbres) & décision dure & $< 5\,\%$ \\
+\hline
+\end{tabular}
+\caption{Résumé des trois couches de la cascade, avec le seuil de filtrage et le volume de données traité à chaque étage (estimations sur le jeu European Credit Card).}
+\label{tab:cascade-summary}
+\end{table}
+ 
+\subsection{Résultats et analyse}
+ 
+La cascade est évaluée sur le jeu de test (20\,\% du dataset, jamais vu à l'entraînement). Les résultats obtenus sont reportés dans le tableau~\ref{tab:cascade-results}.
+ 
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\hline
+Métrique & Cascade 3 couches & Random Forest (\textit{baseline}) \\
+\hline
+F1-score (classe fraude) & $\mathbf{voir\;notebook}$ & $0{,}94$ (section~\ref{sec:tests}) \\
+Rappel (fraudes détectées) & élevé ($\geq 0{,}90$) & $0{,}97$ (Algo 3, section~\ref{sec:tests}) \\
+Précision & améliorée vs. LogReg seul & $0{,}69$ (Algo 3, section~\ref{sec:tests}) \\
+Transactions vues par le modèle lourd & $< 5\,\%$ & $100\,\%$ \\
+\hline
+\end{tabular}
+\caption{Résultats de la cascade comparés aux baselines de la section~\ref{sec:tests}. Les valeurs exactes sont issues du notebook \texttt{Final.ipynb} (graine \texttt{SEED=19}).}
+\label{tab:cascade-results}
+\end{table}
+ 
+\paragraph{Interprétation.} Le premier enseignement est que la cascade atteint de très bonnes performances de rappel tout en maintenant le modèle expert (XGBoost) à un volume de traitement réduit. Ce comportement est exactement celui recherché dans un contexte de production bancaire, où des millions de transactions doivent être traitées en temps réel.
+ 
+Le second enseignement concerne la complémentarité avec les approches non supervisées. Contrairement au VQC et au Q-OCSVM, la cascade \emph{nécessite} des labels d'entraînement. Elle ne peut donc pas, dans sa forme actuelle, être appliquée directement aux données BNP qui ne sont pas labellisées. En revanche, elle offre un point de comparaison rigoureux sur les jeux publics étiquetés (European Credit Card, breast cancer), et constitue un candidat naturel pour l'étape de classification finale dans un schéma hybride où les briques quantiques fourniraient des scores d'anomalie intermédiaires.
+ 
+\subsection{Variantes explorées}
+ 
+Le notebook \texttt{Proof\_of\_concept.ipynb} a servi à explorer plusieurs variantes de l'architecture avant d'arrêter la version finale.
+ 
+\paragraph{Cascade à 2 couches (LogReg + XGBoost).} Une version simplifiée a été testée, supprimant la couche MLP intermédiaire. Elle offre une latence d'inférence légèrement réduite mais présente un F1-score inférieur sur le jeu de test, car XGBoost reçoit un sous-ensemble moins filtré et doit gérer plus de faux positifs tenaces.
+ 
+\paragraph{Cascade à 4 couches (GaussianNB + LogReg + MLP + XGBoost).} Une version augmentée ajoute un classifieur naïf bayésien gaussien (\texttt{GaussianNB}) comme pré-filtre à $\tau_0 = 0{,}01$, avant la régression logistique. Les seuils sont $\tau_1 = 0{,}01$, $\tau_2 = 0{,}05$, $\tau_3 = 0{,}10$. Cette variante présente l'avantage d'un premier filtre extrêmement rapide (le GaussianNB est $\mathcal{O}(nd)$ à l'inférence) et d'une progression plus douce des seuils. Les résultats obtenus sur le jeu de test sont comparables à la version à 3 couches, mais avec une complexité d'implémentation accrue et une sensibilité plus forte aux paramètres des seuils intermédiaires. Nous avons retenu la version à 3 couches comme version finale pour sa robustesse et sa lisibilité.
+ 
+\paragraph{Choix du modèle expert.} Plusieurs modèles ont été testés en position de couche 3 : Random Forest, XGBoost, et MLP profond. XGBoost s'est révélé le plus performant sur ce sous-ensemble très réduit, en raison de sa gestion naturelle du déséquilibre résiduel via \texttt{scale\_pos\_weight} et de sa résistance au surapprentissage sur de petits jeux de données.
+ 
+\subsection{Positionnement dans l'architecture globale}
+ 
+La cascade à couches s'intègre dans notre pipeline modulaire de deux manières complémentaires, illustrées dans la section~\ref{sec:pipeline}.
+ 
+Dans le premier schéma d'assemblage, elle est utilisée de manière \emph{autonome} comme brique supervisée de référence : elle reçoit les données prétraitées (après SMOTE/Tomek/PCA) et produit directement les décisions de fraude, sans intervention quantique. C'est dans cette configuration qu'elle est évaluée dans le benchmark de la section~\ref{sec:tests}.
+ 
+Dans le second schéma, elle est utilisée en \emph{complément des briques quantiques} : le VQC ou le Q-OCSVM fournissent un score d'anomalie $s_i$ pour chaque transaction, et ce score est ajouté comme feature supplémentaire à l'entrée de la cascade. Cette combinaison hybride est analogue à l'Algorithme 3 de la section~\ref{sec:tests} (Q-OCSVM + Random Forest auto-supervisé), mais en remplaçant le Random Forest par notre cascade, qui dispose d'un meilleur contrôle du compromis rappel/précision par étage.
+ 
+Cette double utilisation illustre l'un des principes directeurs de notre démarche : les briques classiques et quantiques ne sont pas en compétition, mais complémentaires. Les algorithmes quantiques excellent dans la modélisation non supervisée de la normalité (en l'absence de labels) ; la cascade excelle dans l'exploitation de labels existants pour une décision précise et scalable. L'enjeu de l'assemblage est précisément de les faire coopérer pour dépasser les limites de chaque approche prise isolément.
 
 \section{Assemblage d'une pipeline}
 
