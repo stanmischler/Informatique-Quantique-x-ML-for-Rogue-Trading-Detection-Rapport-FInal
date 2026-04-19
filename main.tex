@@ -914,9 +914,10 @@ $$s_i = \frac{b_i - a_i}{\max(a_i, b_i)}$$
 
 A noter que chaque $s_i$ et donc le coefficient de silhouette sont dans l'intervalle $[0, 1]$. Le coefficient de silhouette est une métrique de validation qui permet de mesurer la qualité d’une partition de données en évaluant la cohérence de chaque point par rapport à son propre groupe (le cluster) face aux autres. Voir \cite{Rousseeuw1987} et \cite{Shahapure2020} pour plus de précisions sur le coefficient de silhouette et sa pertinence. 
 
-Voici le coefficient de silhouette que nous avons obtenu sur un échantillon de taille .... du jeu de données de la BNP + commentaires
+En prennant un sous echantillon de 5000 lignes du jeu de données de la BNP en en appliquant l'algorithme 3 nous obtenons un coefficient de silhouette de $0.046233$. L'algorithme a classé $150$ données comme étant suspectes $(3\%)$ . On remarque que le score de silhouette est bas mais c'était attendu parce que cette métrique favorise des groupes compacts et bien séparés dans l’espace géométrique, alors qu’en fraude les comportements suspects sont souvent diffus, hétérogènes et très minoritaires, donc naturellement proches du nuage principal. La création de cluster n'est pas la philosophie des algorithmes SVM, ce à quoi s'ajoute le faible taux de suspects à $3\%$ ce qui n'optimise pas notre algorithme pour cette métrique. Ainsi la petitesse du coefficient de silhouette n'est pas alarmante et ne remet pas en question le modèle.  
 
-Ensuite nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme. Nous avons inspecté leurs features et il est aisé d'observer que cette échantillon est anormal dans une certaine mesure. Voici quelques exemples qui étaillent notre propos :
+
+Etant donné la faible validation apportée par le calcul du coefficient de silhouette nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme. Nous avons inspecté leurs features et il est aisé d'observer que cette échantillon est anormal dans une certaine mesure. Voici quelques exemples qui étaillent notre propos :
 
 \section{Difficultés et critique}
 
