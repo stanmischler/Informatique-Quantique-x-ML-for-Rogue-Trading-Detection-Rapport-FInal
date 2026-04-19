@@ -559,21 +559,21 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
  
 \subsection{Motivation et positionnement dans la pipeline}
  
-Les sections précédentes ont présenté deux grandes familles d'algorithmes non supervisés : le clustering quantique variationnel (VQC, section~\ref{subsec:vqc-clustering}) et le Q-OCSVM (section~\ref{subsec:q-ocsvm}). Ces approches partagent une même logique — modéliser le comportement normal des transactions sans recourir à des labels — et constituent le c\oe ur de notre contribution quantique. Leur limite commune est cependant bien identifiée : en l'absence de labels, le signal de détection reste flou, et le calibrage du seuil de décision ($\tau$ dans le VQC, $\nu$ dans l'OCSVM) repose sur des heuristiques ou sur un sous-ensemble annoté a posteriori.
+Les sections précédentes ont présenté deux grandes familles d'algorithmes non supervisés~: le clustering quantique variationnel (VQC, section~\ref{subsec:vqc-clustering}) et le Q-OCSVM (section~\ref{subsec:q-ocsvm}). Ces approches partagent une même logique --- modéliser le comportement normal des transactions sans recourir à des labels --- et constituent le c\oe ur de notre contribution quantique. Leur limite commune est cependant bien identifiée~: en l'absence de labels, le signal de détection reste flou, et le calibrage du seuil de décision ($\tau$ dans le VQC, $\nu$ dans l'OCSVM) repose sur des heuristiques ou sur un sous-ensemble annoté a posteriori.
  
-Nous introduisons ici une troisième brique, de nature entièrement classique et supervisée, qui remplit un rôle complémentaire dans la pipeline modulaire décrite en section~\ref{sec:bnp} : la \emph{cascade à couches} (\textit{layered cascade}). Son principe est radicalement différent des approches précédentes — elle exploite les labels d'entraînement disponibles sur les jeux de données publics pour apprendre une frontière de décision progressive — mais elle s'inscrit dans la même architecture \textit{plug \& play} : elle respecte la même interface d'entrée/sortie que les briques quantiques et peut s'y substituer ou s'y combiner dans le schéma d'assemblage décrit en section~\ref{sec:pipeline}.
+Nous introduisons ici une troisième brique dans la pipeline modulaire~: la \emph{cascade à couches} (\textit{layered cascade}). Son principe est radicalement différent des approches précédentes --- elle exploite les labels d'entraînement disponibles sur les jeux de données publics pour apprendre une frontière de décision progressive --- mais elle s'inscrit dans la même architecture \textit{plug \& play}~: elle respecte la même interface d'entrée/sortie que les briques quantiques et peut s'y substituer ou s'y combiner dans le schéma d'assemblage décrit en section~\ref{sec:pipeline}.
  
-La cascade remplit également un rôle méthodologique essentiel : elle constitue la \textbf{baseline supervisée} à laquelle nous comparons les performances des algorithmes quantiques dans la section~\ref{sec:tests}. Sans cette référence, il serait impossible de mesurer l'apport — ou l'écart — des briques quantiques par rapport à des méthodes classiques éprouvées. Ce rôle est analogue à celui que jouent le $k$-means classique face au VQC (voir tableau~\ref{tab:kmeans-results}) ou le Random Forest dans le benchmark de la section~\ref{sec:tests}.
+La cascade remplit deux rôles complémentaires dans notre démarche. D'abord, elle constitue la \textbf{baseline supervisée classique} à laquelle nous comparons les performances des algorithmes quantiques dans la section~\ref{sec:tests}~: sans cette référence, il serait impossible de mesurer l'apport réel des briques quantiques. Ensuite, et c'est l'objet de la seconde partie de cette section, la cascade est un \textbf{cadre algorithmique extensible}~: nous explorons dans quelle mesure une ou plusieurs de ses couches peuvent être remplacées par des circuits quantiques variationnels, ouvrant la voie à une \emph{cascade hybride} dont nous discutons le potentiel et les limites à la lumière de la littérature récente.
  
 \subsection{Principe de la détection en cascade}
  
-L'idée directrice est simple : plutôt que d'appliquer un unique modèle lourd à l'ensemble des transactions, on enchaîne plusieurs classifieurs de complexité croissante, chacun ne traitant que les cas que le modèle précédent a jugés suspects. Cette architecture est motivée par deux contraintes propres à la détection de fraude.
+L'idée directrice est simple~: plutôt que d'appliquer un unique modèle lourd à l'ensemble des transactions, on enchaîne plusieurs classifieurs de complexité croissante, chacun ne traitant que les cas que le modèle précédent a jugés suspects. Cette architecture est motivée par deux contraintes propres à la détection de fraude.
  
-La première est le \emph{déséquilibre extrême des classes} : les fraudes représentent typiquement moins de $0{,}2\,\%$ des transactions dans le jeu de données European Credit Card que nous utilisons pour le benchmarking. Un modèle unique appliqué à l'intégralité du flux est mécaniquement biaisé vers la classe majoritaire. Les briques de prétraitement (SMOTE, Tomek Links) décrites en section précédente corrigent partiellement ce biais à l'entraînement, mais pas à l'inférence, où le déséquilibre est structurel.
+La première est le \emph{déséquilibre extrême des classes}~: les fraudes représentent typiquement moins de $0{,}2\,\%$ des transactions dans le jeu European Credit Card que nous utilisons pour le benchmarking. Un modèle unique appliqué à l'intégralité du flux est mécaniquement biaisé vers la classe majoritaire. Les briques de prétraitement (SMOTE, Tomek Links) décrites en section précédente corrigent partiellement ce biais à l'entraînement, mais pas à l'inférence, où le déséquilibre est structurel.
  
-La seconde contrainte est le \emph{compromis rappel/précision asymétrique} propre au domaine bancaire : bloquer la carte d'un client légitime (faux positif) a un coût d'expérience utilisateur mesurable, mais manquer une fraude (faux négatif) a un coût financier et réglementaire direct. La cascade permet de gérer ce compromis de manière granulaire, en ajustant indépendamment le seuil de chaque couche plutôt qu'un unique hyperparamètre global.
+La seconde contrainte est le \emph{compromis rappel/précision asymétrique} propre au domaine bancaire~: bloquer la carte d'un client légitime (faux positif) a un coût d'expérience utilisateur mesurable, mais manquer une fraude (faux négatif) a un coût financier et réglementaire direct. La cascade permet de gérer ce compromis de manière granulaire, en ajustant indépendamment le seuil de chaque couche plutôt qu'un unique hyperparamètre global.
  
-\paragraph{Architecture générale.} La cascade est organisée en $L$ étages ordonnés du plus simple au plus complexe. Chaque étage $\ell$ reçoit un sous-ensemble $\mathcal{S}_\ell \subseteq \mathcal{X}$ en entrée, produit une probabilité de fraude $p_\ell(\vec{x})$ pour chaque élément, et passe à l'étage suivant uniquement les transactions vérifiant $p_\ell(\vec{x}) > \tau_\ell$, où $\tau_\ell$ est un seuil propre à chaque couche. Les transactions rejetées à l'étage $\ell$ sont définitivement classées comme légitimes. La décision finale de fraude est émise par le dernier étage $L$.
+\paragraph{Architecture générale.} La cascade est organisée en $L$ étages ordonnés du plus simple au plus complexe. Chaque étage $\ell$ reçoit un sous-ensemble $\mathcal{S}_\ell \subseteq \mathcal{X}$ en entrée, produit une probabilité de fraude $p_\ell(\vec{x})$ pour chaque transaction, et transmet à l'étage suivant uniquement celles vérifiant $p_\ell(\vec{x}) > \tau_\ell$, où $\tau_\ell$ est un seuil propre à chaque couche. Les transactions rejetées à l'étage $\ell$ sont définitivement classées comme légitimes. La décision finale est émise par le dernier étage $L$.
  
 \begin{figure}[H]
 \centering
@@ -589,12 +589,10 @@ La seconde contrainte est le \emph{compromis rappel/précision asymétrique} pro
 \node[lbox] (l1) {\textbf{Couche 1}\\Régression\\Logistique\\$\tau_1 = 0{,}01$};
 \node[mbox, right=of l1] (l2) {\textbf{Couche 2}\\Réseau de\\neurones (MLP)\\$\tau_2 = 0{,}01$};
 \node[hbox, right=of l2] (l3) {\textbf{Couche 3}\\XGBoost\\(Expert)\\Décision dure};
- 
 \node[above=0.6cm of l1, font=\small\itshape] (allin) {Toutes les transactions};
 \node[below=0.6cm of l1, font=\small, text=gray] (rej1) {Légitime (\textit{rejet})};
 \node[below=0.6cm of l2, font=\small, text=gray] (rej2) {Légitime (\textit{rejet})};
 \node[right=1.1cm of l3, font=\small] (out) {Fraude / Légitime};
- 
 \draw[arr] (allin) -- (l1);
 \draw[arr] (l1) -- node[above, font=\scriptsize]{suspects} (l2);
 \draw[arr] (l2) -- node[above, font=\scriptsize]{suspects} (l3);
@@ -602,124 +600,158 @@ La seconde contrainte est le \emph{compromis rappel/précision asymétrique} pro
 \draw[rejarr] (l1.south) -- (rej1);
 \draw[rejarr] (l2.south) -- (rej2);
 \end{tikzpicture}
-\caption{Architecture de la cascade à trois couches. Les transactions rejetées à chaque étage sont définitivement classées comme légitimes, seuls les suspects progressent vers le classifieur suivant, plus complexe.}
+\caption{Architecture de la cascade classique à trois couches. Les transactions rejetées à chaque étage sont définitivement classées comme légitimes~; seuls les suspects progressent vers le classifieur suivant, plus complexe.}
 \label{fig:cascade-archi}
 \end{figure}
  
-\subsection{Description des trois couches}
+\subsection{Description des trois couches classiques}
  
-Nous implémentons une cascade à $L = 3$ étages sur le jeu de données European Credit Card (285~315 transactions, dont 492 fraudes, soit $0{,}172\,\%$). Le prétraitement appliqué en amont est celui décrit dans la section consacrée au preprocessing : un \texttt{RobustScaler} est appliqué aux colonnes \texttt{Amount} et \texttt{Time} — le \texttt{RobustScaler} étant préféré au \texttt{StandardScaler} car il est moins sensible aux montants extrêmes caractéristiques des fraudes — et le jeu est découpé en 80/20 avec stratification sur les labels. L'entraînement de chaque couche est réalisé \emph{exclusivement sur les données d'entraînement} ; le jeu de test reste entièrement invisible pendant tout l'apprentissage.
+Nous implémentons une cascade à $L = 3$ étages sur le jeu European Credit Card (285\,315 transactions, 492 fraudes, soit $0{,}172\,\%$). Le prétraitement appliqué en amont est celui décrit en section précédente~: un \texttt{RobustScaler} est appliqué aux colonnes \texttt{Amount} et \texttt{Time} --- le \texttt{RobustScaler} étant préféré au \texttt{StandardScaler} car moins sensible aux montants extrêmes caractéristiques des fraudes --- et le jeu est découpé en 80/20 avec stratification sur les labels.
  
 \subsubsection*{Couche 1 : La Régression Logistique (le tamis)}
  
-La première couche est intentionnellement le modèle le plus simple et le plus rapide. Son rôle n'est pas de décider avec précision, mais de filtrer massivement les transactions manifestement légitimes tout en garantissant un rappel quasi parfait sur les fraudes.
- 
-\paragraph{Modèle.} On entraîne une régression logistique avec l'option \texttt{class\_weight=`balanced'}, qui compense automatiquement le déséquilibre de classes en attribuant un poids inversement proportionnel à la fréquence de chaque classe. Le modèle est entraîné sur l'intégralité du jeu d'entraînement.
- 
-\paragraph{Seuil de filtrage.} Le seuil est fixé à $\tau_1 = 0{,}01$ : toute transaction pour laquelle le modèle estime une probabilité de fraude supérieure à $1\,\%$ est transmise à la couche suivante. Ce seuil volontairement très bas garantit un rappel maximal — aucune fraude ne doit être perdue dès la première couche — au prix d'un nombre important de faux positifs transmis en aval.
- 
-\paragraph{Effet.} En pratique, cette couche élimine environ $60$ à $70\,\%$ des transactions légitimes dès la première étape, réduisant drastiquement le volume de données que les couches suivantes, plus coûteuses, doivent analyser.
+La première couche est intentionnellement le modèle le plus simple et le plus rapide. Son rôle n'est pas de décider avec précision, mais de filtrer massivement les transactions manifestement légitimes tout en garantissant un rappel quasi parfait sur les fraudes. On entraîne une régression logistique avec l'option \texttt{class\_weight=`balanced'}, qui compense le déséquilibre en attribuant un poids inversement proportionnel à la fréquence de chaque classe. Le seuil est fixé à $\tau_1 = 0{,}01$~: toute transaction pour laquelle le modèle estime une probabilité de fraude supérieure à $1\,\%$ est transmise à la couche suivante. Ce seuil volontairement très bas garantit un rappel maximal --- aucune fraude ne doit être perdue dès la première couche --- au prix d'un nombre important de faux positifs transmis en aval. En pratique, cette couche élimine entre 60 et 70\,\% des transactions légitimes dès la première étape.
  
 \subsubsection*{Couche 2 : Le Réseau de Neurones MLP (l'analyste)}
  
-La deuxième couche est un réseau de neurones multicouche (\textit{Multi-Layer Perceptron}, MLP), entraîné \emph{uniquement} sur les transactions que la régression logistique a jugées suspectes. Cette restriction est cruciale : en focalisant l'apprentissage sur les cas ambigus, le MLP développe une représentation interne spécifiquement adaptée à la zone de frontière difficile entre faux positifs tenaces et vraies fraudes.
- 
-\paragraph{Architecture.} Deux couches cachées de tailles $32$ et $16$ neurones respectivement, avec activation \texttt{ReLU} et optimiseur \texttt{Adam}. La régularisation $L_2$ (paramètre \texttt{alpha}$= 10^{-4}$) prévient le surapprentissage sur le sous-ensemble réduit reçu en entrée. Le taux d'apprentissage est adaptatif (\texttt{learning\_rate=`adaptive'}), ce qui est pertinent car la taille du sous-ensemble varie selon les runs.
- 
-\paragraph{Seuil de filtrage.} Le seuil est maintenu à $\tau_2 = 0{,}01$ : les réseaux de neurones produisant des probabilités généralement plus tranchées (proches de 0 ou 1), ce seuil bas est suffisant pour ne rien perdre tout en réduisant encore significativement le flux transmis à la couche finale.
+La deuxième couche est un réseau de neurones multicouche (\textit{Multi-Layer Perceptron}, MLP), entraîné \emph{uniquement} sur les transactions que la régression logistique a jugées suspectes. Cette restriction est cruciale~: en focalisant l'apprentissage sur les cas ambigus, le MLP développe une représentation interne spécifiquement adaptée à la zone de frontière difficile entre faux positifs tenaces et vraies fraudes. L'architecture comporte deux couches cachées de tailles $32$ et $16$ neurones respectivement, avec activation \texttt{ReLU} et optimiseur \texttt{Adam}. La régularisation $L_2$ (paramètre \texttt{alpha}$= 10^{-4}$) prévient le surapprentissage sur le sous-ensemble réduit reçu en entrée. Le seuil est maintenu à $\tau_2 = 0{,}01$.
  
 \subsubsection*{Couche 3 : XGBoost (l'expert)}
  
-La dernière couche est le modèle le plus puissant de la cascade. Elle ne reçoit qu'une infime fraction des données originales — les cas que ni la régression logistique ni le MLP n'ont su écarter — et doit trancher de manière définitive et précise.
- 
-\paragraph{Modèle.} Un XGBoost avec 200 arbres (\texttt{n\_estimators=200}), un taux d'apprentissage faible (\texttt{learning\_rate=0.05}) pour une convergence stable, et \texttt{scale\_pos\_weight=20} pour compenser le déséquilibre résiduel dans le sous-ensemble. Ce paramètre est équivalent à indiquer au modèle que chaque fraude vaut 20 légitimes lors du calcul de la fonction de perte.
- 
-\paragraph{Décision.} À ce stade, la décision est dure : le modèle produit un label binaire sans seuil intermédiaire. L'objectif est la précision maximale — ne confirmer comme fraude que ce qui l'est réellement — car les faux positifs résiduels à cet étage sont ceux qui déclencheront un blocage de carte.
- 
-\subsection{Entraînement en cascade et absence de fuite de données}
- 
-Un point crucial de l'implémentation concerne la rigueur du protocole d'entraînement. Chaque couche est entraînée sur un sous-ensemble de données d'entraînement \emph{différent} de celui de la couche précédente, mais le jeu de test reste entièrement invisible à toutes les étapes. La séquence est la suivante :
- 
-\begin{enumerate}
-    \item La couche 1 (LogReg) est entraînée sur $\mathcal{X}_{\text{train}}$ complet.
-    \item On applique la couche 1 à $\mathcal{X}_{\text{train}}$ pour générer le sous-ensemble $\mathcal{X}_{\text{train},2} = \{\vec{x} \in \mathcal{X}_{\text{train}} \mid p_1(\vec{x}) > \tau_1\}$.
-    \item La couche 2 (MLP) est entraînée sur $\mathcal{X}_{\text{train},2}$.
-    \item On applique la couche 2 à $\mathcal{X}_{\text{train},2}$ pour générer $\mathcal{X}_{\text{train},3}$.
-    \item La couche 3 (XGBoost) est entraînée sur $\mathcal{X}_{\text{train},3}$.
-\end{enumerate}
- 
-Cette procédure présente une subtilité : les couches 2 et 3 sont évaluées sur les données qui ont servi à les entraîner (étapes 3 et 5), ce qui crée un léger biais optimiste pendant l'entraînement. C'est précisément pourquoi l'évaluation finale se fait sur le jeu de test via la fonction d'inférence en cascade décrite ci-dessous, qui reproduit fidèlement le filtrage progressif sans aucune fuite.
- 
-\subsection{Fonction d'inférence en cascade}
- 
-À l'inférence, une nouvelle transaction $\vec{x}$ suit le chemin suivant :
- 
-\begin{enumerate}
-    \item La couche 1 calcule $p_1(\vec{x})$. Si $p_1(\vec{x}) \leq \tau_1$, la transaction est classée légitime et le processus s'arrête.
-    \item Si $p_1(\vec{x}) > \tau_1$, la couche 2 calcule $p_2(\vec{x})$. Si $p_2(\vec{x}) \leq \tau_2$, la transaction est classée légitime et le processus s'arrête.
-    \item Si $p_2(\vec{x}) > \tau_2$, la couche 3 rend la décision finale binaire $\hat{y}_3(\vec{x}) \in \{0, 1\}$.
-\end{enumerate}
- 
-La grande majorité des transactions (plus de $95\,\%$) sont traitées en une ou deux étapes seulement, ce qui rend la cascade extrêmement efficace en production : le modèle lourd (XGBoost) ne traite qu'une infime fraction du flux global.
+La dernière couche est le modèle le plus puissant de la cascade. Elle ne reçoit qu'une infime fraction des données originales --- les cas que ni la régression logistique ni le MLP n'ont su écarter --- et doit trancher de manière définitive. On utilise un XGBoost avec 200 arbres (\texttt{n\_estimators=200}), un taux d'apprentissage faible (\texttt{learning\_rate=0.05}) et \texttt{scale\_pos\_weight=20} pour compenser le déséquilibre résiduel dans le sous-ensemble. La décision est dure~: le modèle produit un label binaire sans seuil intermédiaire.
  
 \begin{table}[H]
 \centering
 \begin{tabular}{lccc}
 \hline
-Étage & Modèle & Seuil $\tau$ & Données reçues \\
+Étage & Modèle & Seuil $\tau$ & Données reçues (estimation) \\
 \hline
-1 & Régression Logistique & $0{,}01$ & $100\,\%$ des transactions \\
-2 & MLP (32--16 neurones, ReLU) & $0{,}01$ & $\sim 30\text{--}40\,\%$ \\
+1 & Régression Logistique & $0{,}01$ & $100\,\%$ \\
+2 & MLP ($32 \to 16$ neurones, ReLU) & $0{,}01$ & $\sim 30\text{--}40\,\%$ \\
 3 & XGBoost (200 arbres) & décision dure & $< 5\,\%$ \\
 \hline
 \end{tabular}
-\caption{Résumé des trois couches de la cascade, avec le seuil de filtrage et le volume de données traité à chaque étage (estimations sur le jeu European Credit Card).}
+\caption{Résumé des trois couches de la cascade classique, avec le seuil de filtrage et le volume de données traité à chaque étage.}
 \label{tab:cascade-summary}
 \end{table}
  
-\subsection{Résultats et analyse}
+\subsection{Résultats de la cascade classique}
  
-La cascade est évaluée sur le jeu de test (20\,\% du dataset, jamais vu à l'entraînement). Les résultats obtenus sont reportés dans le tableau~\ref{tab:cascade-results}.
+La cascade est évaluée sur le jeu de test (20\,\% du dataset, jamais vu à l'entraînement) via la fonction d'inférence en cascade, qui reproduit fidèlement le filtrage progressif sans aucune fuite de données. Les résultats sont reportés dans le tableau~\ref{tab:cascade-results}.
  
 \begin{table}[H]
 \centering
 \begin{tabular}{lcc}
 \hline
-Métrique & Cascade 3 couches & Random Forest (\textit{baseline}) \\
+Métrique & Cascade 3 couches & Random Forest (\textit{ref.~section~\ref{sec:tests}}) \\
 \hline
-F1-score (classe fraude) & $\mathbf{voir\;notebook}$ & $0{,}94$ (section~\ref{sec:tests}) \\
-Rappel (fraudes détectées) & élevé ($\geq 0{,}90$) & $0{,}97$ (Algo 3, section~\ref{sec:tests}) \\
-Précision & améliorée vs. LogReg seul & $0{,}69$ (Algo 3, section~\ref{sec:tests}) \\
-Transactions vues par le modèle lourd & $< 5\,\%$ & $100\,\%$ \\
+F1-score (classe fraude) & \textit{voir notebook \texttt{Final.ipynb}} & $0{,}94$ \\
+Rappel & $\geq 0{,}90$ (estimé) & $0{,}97$ \\
+Précision & améliorée vs.~LogReg seul & $0{,}69$ \\
+Transactions vues par couche 3 & $< 5\,\%$ & $100\,\%$ \\
 \hline
 \end{tabular}
-\caption{Résultats de la cascade comparés aux baselines de la section~\ref{sec:tests}. Les valeurs exactes sont issues du notebook \texttt{Final.ipynb} (graine \texttt{SEED=19}).}
+\caption{Résultats de la cascade comparés à la baseline Random Forest de la section~\ref{sec:tests}. Les valeurs exactes sont à compléter à partir du notebook \texttt{Final.ipynb} (graine \texttt{SEED=19}).}
 \label{tab:cascade-results}
 \end{table}
  
-\paragraph{Interprétation.} Le premier enseignement est que la cascade atteint de très bonnes performances de rappel tout en maintenant le modèle expert (XGBoost) à un volume de traitement réduit. Ce comportement est exactement celui recherché dans un contexte de production bancaire, où des millions de transactions doivent être traitées en temps réel.
+\paragraph{Bilan intermédiaire.} Le premier enseignement est que la cascade atteint de très bonnes performances de rappel tout en maintenant le modèle expert (XGBoost) à un volume de traitement réduit~: plus de $95\,\%$ des transactions sont décidées en une ou deux étapes seulement, ce qui rend l'approche efficace en production. Contrairement au VQC et au Q-OCSVM, la cascade \emph{nécessite} des labels d'entraînement. Elle ne peut donc pas être appliquée directement aux données BNP non labellisées. En revanche, elle offre un point de comparaison rigoureux sur les jeux publics étiquetés et constitue un candidat naturel pour l'étape de classification supervisée dans un schéma hybride.
  
-Le second enseignement concerne la complémentarité avec les approches non supervisées. Contrairement au VQC et au Q-OCSVM, la cascade \emph{nécessite} des labels d'entraînement. Elle ne peut donc pas, dans sa forme actuelle, être appliquée directement aux données BNP qui ne sont pas labellisées. En revanche, elle offre un point de comparaison rigoureux sur les jeux publics étiquetés (European Credit Card, breast cancer), et constitue un candidat naturel pour l'étape de classification finale dans un schéma hybride où les briques quantiques fourniraient des scores d'anomalie intermédiaires.
+\subsection{Extension quantique de la cascade}
+\label{subsec:cascade-quantique}
  
-\subsection{Variantes explorées}
+La cascade classique décrite ci-dessus repose sur trois couches entièrement classiques. Une question naturelle se pose alors~: est-il possible, et pertinent, de remplacer une ou plusieurs de ces couches par un circuit quantique variationnel~? Nous explorons ici cette direction à la lumière de la littérature récente, en distinguant les substitutions qui nous semblent justifiées sur le plan algorithmique de celles qui restent aujourd'hui essentiellement prospectives.
  
-Le notebook \texttt{Proof\_of\_concept.ipynb} a servi à explorer plusieurs variantes de l'architecture avant d'arrêter la version finale.
+\subsubsection{Pourquoi insérer une couche quantique dans la cascade~?}
  
-\paragraph{Cascade à 2 couches (LogReg + XGBoost).} Une version simplifiée a été testée, supprimant la couche MLP intermédiaire. Elle offre une latence d'inférence légèrement réduite mais présente un F1-score inférieur sur le jeu de test, car XGBoost reçoit un sous-ensemble moins filtré et doit gérer plus de faux positifs tenaces.
+L'argument principal en faveur de l'hybridation est celui de l'\emph{expressivité de l'espace de Hilbert}~: en encodant une transaction $\vec{x} \in \mathbb{R}^d$ dans un état quantique $\ket{\psi(\vec{x})} = U(\vec{x})\ket{0}^{\otimes n}$, on plonge les données dans un espace de dimension $2^n$, dans lequel des frontières de décision non linéaires très complexes peuvent être représentées avec un nombre de paramètres bien inférieur à ce qu'exigerait un réseau classique de même expressivité \cite{havlicek2019, schuld2019qml}. Cet avantage est particulièrement pertinent pour les couches intermédiaires de la cascade, qui opèrent sur des sous-ensembles très réduits ($< 5\,\%$ des données) et doivent tracer des frontières fines entre faux positifs tenaces et vraies fraudes --- exactement le type de problème pour lequel l'expressivité du noyau quantique est susceptible d'apporter un gain.
  
-\paragraph{Cascade à 4 couches (GaussianNB + LogReg + MLP + XGBoost).} Une version augmentée ajoute un classifieur naïf bayésien gaussien (\texttt{GaussianNB}) comme pré-filtre à $\tau_0 = 0{,}01$, avant la régression logistique. Les seuils sont $\tau_1 = 0{,}01$, $\tau_2 = 0{,}05$, $\tau_3 = 0{,}10$. Cette variante présente l'avantage d'un premier filtre extrêmement rapide (le GaussianNB est $\mathcal{O}(nd)$ à l'inférence) et d'une progression plus douce des seuils. Les résultats obtenus sur le jeu de test sont comparables à la version à 3 couches, mais avec une complexité d'implémentation accrue et une sensibilité plus forte aux paramètres des seuils intermédiaires. Nous avons retenu la version à 3 couches comme version finale pour sa robustesse et sa lisibilité.
+Un second argument est celui de la \emph{représentation des dépendances temporelles}. Dans un contexte bancaire réel, les transactions ne sont pas indépendantes~: l'historique récent d'un client est un signal fort de fraude. El Alami et al.~\cite{elalami2026} montrent que des architectures QML variées (VQC, SQNN, EQNN) parviennent à capter des patterns de fraude sur le jeu European Credit Card, avec un F1-score atteignant $0{,}88$ pour la meilleure configuration (VQC avec Z feature map et ansatz Pauli Two Design). Plus directement, Ubale et al.~\cite{qlstm2025} démontrent qu'un LSTM classique couplé à un circuit variationnel (AngleEmbedding + StronglyEntanglingLayers, optimisé par parameter-shift rule) dépasse un LSTM classique de même taille sur des données synthétiques de transactions~: F1-score de $95{,}39\,\%$ contre $94{,}25\,\%$, avec un rappel supérieur ($96{,}67\,\%$ contre $92{,}93\,\%$). Ce dernier point est directement transposable à la couche 2 de notre cascade.
  
-\paragraph{Choix du modèle expert.} Plusieurs modèles ont été testés en position de couche 3 : Random Forest, XGBoost, et MLP profond. XGBoost s'est révélé le plus performant sur ce sous-ensemble très réduit, en raison de sa gestion naturelle du déséquilibre résiduel via \texttt{scale\_pos\_weight} et de sa résistance au surapprentissage sur de petits jeux de données.
+\subsubsection{Quelles couches remplacer~?}
+ 
+Nous distinguons trois stratégies de substitution, de la plus partielle à la plus ambitieuse.
+ 
+\paragraph{Stratégie A~: substitution de la couche 2 par un circuit hybride (QLSTM).} La couche 2 est celle dont la tâche est la plus subtile~: elle doit discriminer les vrais suspects des faux positifs de la régression logistique, sur un sous-ensemble réduit. C'est précisément le régime dans lequel un réseau de neurones hybride classique/quantique est susceptible d'apporter un gain. On peut s'inspirer directement de l'architecture QLSTM de Ubale et al.~\cite{qlstm2025}, en chaînant~: (i) un LSTM classique qui extrait des dépendances séquentielles sur une fenêtre glissante de transactions, (ii) une couche pleinement connectée qui projette l'état caché $h_T$ vers $n_{\text{qubits}}$ dimensions, (iii) un circuit variationnel (AngleEmbedding + StronglyEntanglingLayers paramétrées) mesurant dans la base de Pauli-$Z$, et (iv) une couche dense finale de classification. Les paramètres classiques et quantiques sont entraînés conjointement par rétropropagation, les gradients quantiques étant calculés par la \emph{parameter-shift rule}~:
+\[
+\frac{\partial \mathcal{L}}{\partial \theta_j} \approx \frac{\mathcal{L}(\theta_j + \tfrac{\pi}{2}) - \mathcal{L}(\theta_j - \tfrac{\pi}{2})}{2}.
+\]
+Cette approche est implémentable dès aujourd'hui avec PennyLane + PyTorch sur \texttt{AerSimulator}, et ne requiert aucun QRAM ni processeur quantique réel. La taille réduite du sous-ensemble transmis à la couche 2 (quelques milliers de transactions au plus) rend le calcul des gradients par parameter-shift envisageable sans surcoût prohibitif~: Ubale et al. rapportent 45--65 secondes par époque sur 10\,000 points avec 10 qubits, ce qui est cohérent avec notre contrainte.
+ 
+\paragraph{Stratégie B~: substitution de la couche 3 par un Q-SVM supervisé.} La couche 3 est celle qui reçoit le sous-ensemble le plus réduit et doit produire la décision finale. C'est donc le contexte le plus favorable à un classifieur à noyau quantique~: la complexité quadratique de la matrice de Gram (déjà identifiée comme le principal verrou du Q-OCSVM en section~\ref{subsec:q-ocsvm}) est atténuée par la petite taille du sous-ensemble. On substitue XGBoost par un Q-SVM supervisé construit sur le même principe \emph{compute-uncompute} que le Q-OCSVM, mais avec deux classes explicitement labellisées. El Alami et al.~\cite{elalami2026} confirment la faisabilité de cette approche sur le jeu European Credit Card~: des classifieurs QML supervisés (VQC, SQNN) atteignent des F1-scores de $0{,}80$ à $0{,}88$ sur ce jeu, ce qui constitue une référence réaliste pour notre couche 3 quantique. L'analyse ANOVA de cet article identifie par ailleurs le \emph{choix de la feature map et de l'ansatz} comme le facteur statistiquement le plus déterminant après le type de modèle (F-value de $10{,}96$ pour l'ansatz, $p < 10^{-22}$)~: une exploration systématique des configurations feature map/ansatz serait donc nécessaire avant de valider une configuration précise pour notre couche 3.
+ 
+\paragraph{Stratégie C~: cascade entièrement quantique.} La stratégie la plus ambitieuse consiste à remplacer toutes les couches par des circuits quantiques. La couche 1 serait un classifieur QML léger (par exemple un VQC à faible profondeur avec Z feature map, qui présente une bonne convergence et une moindre sensibilité au bruit d'après El Alami et al.~\cite{elalami2026}), la couche 2 un QLSTM hybride, et la couche 3 un Q-SVM supervisé. Sur le plan théorique, cette architecture exploiterait l'espace de Hilbert à chaque étage du filtrage et offrirait la chaîne de représentation la plus expressive. Sur le plan pratique, cette stratégie se heurte à trois verrous cumulatifs~: le coût de simulation de trois circuits distincts sur l'intégralité du pipeline, l'absence de QRAM pour les étages traitant de grands volumes (couche 1), et la difficulté d'optimiser conjointement des circuits aux profondeurs et objectifs très différents.
+ 
+\subsubsection{Analyse de faisabilité et limites}
+ 
+Le tableau~\ref{tab:cascade-hybride} synthétise la faisabilité de chaque stratégie au regard des contraintes matérielles identifiées dans notre projet (simulation sur \texttt{AerSimulator}, absence de QRAM, budget de \textit{shots} limité).
+ 
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\hline
+Stratégie & Couche(s) quantique(s) & Faisable auj. & Gain attendu \\
+\hline
+A --- Couche 2 hybride (QLSTM) & 2 & \checkmark & Rappel $\uparrow$ \\
+B --- Couche 3 Q-SVM supervisé & 3 & \checkmark & Précision $\uparrow$ \\
+A + B --- Couches 2 et 3 & 2 et 3 & Partiel & Les deux \\
+C --- Cascade entièrement quantique & 1, 2 et 3 & \texttimes & Maximal (théorique) \\
+\hline
+\end{tabular}
+\caption{Stratégies d'hybridation de la cascade, avec évaluation de la faisabilité sur simulateur et du gain attendu sur le F1-score.}
+\label{tab:cascade-hybride}
+\end{table}
+ 
+\paragraph{Limite commune~: la couche 1 doit rester classique.} La régression logistique traitant $100\,\%$ des transactions, un remplacement quantique à cet étage serait rédhibitoire~: la complexité quadratique de la matrice de Gram (pour un Q-SVM) ou le surcoût de simulation d'un VQC (proportionnel au nombre de transactions fois le nombre de \textit{shots}) rendraient le pipeline inutilisable en production. Ce constat est cohérent avec l'observation de Ubale et al.~\cite{qlstm2025}, qui notent que leurs expériences ont été menées sur des sous-ensembles de 10\,000 points --- soit moins de $4\,\%$ de notre jeu d'entraînement complet. La couche 1 classique est donc une contrainte structurelle, non un choix par défaut.
+ 
+\paragraph{Sur les feature maps et ansätze pour les couches 2 et 3.} El Alami et al.~\cite{elalami2026} fournissent un guide empirique précieux~: sur le jeu European Credit Card, la configuration VQC + Z feature map + Pauli Two Design atteint le F1-score le plus élevé ($0{,}88$), avec une précision de $1{,}00$ (aucun faux positif dans le sous-ensemble de test) mais un rappel de $0{,}78$. Pour la couche 3, qui valorise la précision (éviter les blocages de cartes injustifiés), cette combinaison est un candidat naturel. Pour la couche 2, dont on veut maximiser le rappel (ne manquer aucune fraude avant la couche 3), les configurations avec ansatz Two Local ou Efficient SU2 semblent plus appropriées, atteignant des rappels de $0{,}71$ à $0{,}73$ sur le même jeu.
+ 
+\paragraph{Sur la robustesse au bruit.} El Alami et al. évaluent également la robustesse des meilleurs modèles sous cinq types de bruit quantique (amplitude damping, bit flip, dépolarisation, phase damping, phase flip). Le VQC se révèle plus robuste que le SQNN~: son exactitude ne chute pas en dessous de $0{,}55$ même à des niveaux de bruit modérés ($p = 0{,}25$), là où le SQNN stagne entre $0{,}45$ et $0{,}55$ dès le début. En l'absence de QRAM et sur simulateur bruité, le VQC est donc le candidat le plus prudent pour les couches 2 et 3 de la cascade hybride.
+ 
+\subsubsection{Architecture de la cascade hybride proposée}
+ 
+Sur la base de cette analyse, nous proposons l'architecture de cascade hybride suivante, qui constitue une feuille de route pour des travaux futurs ou pour intégration dans la pipeline d'assemblage (section~\ref{sec:pipeline})~:
+ 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.8cm and 1.2cm,
+    box/.style={draw, rounded corners, align=center, minimum height=1.1cm, minimum width=3cm, font=\small},
+    cbox/.style={box, fill=orange!12},
+    qbox/.style={box, fill=blue!12},
+    arr/.style={-{Latex[length=2mm]}, thick},
+    rejarr/.style={-{Latex[length=2mm]}, thick, dashed, gray}
+]
+\node[cbox] (l1) {\textbf{Couche 1 (classique)}\\LogReg balancée\\$\tau_1 = 0{,}01$ --- \textit{tamis}};
+\node[qbox, right=of l1] (l2) {\textbf{Couche 2 (quantique)}\\QLSTM hybride\\(LSTM + VQC)\\$\tau_2$ --- \textit{analyste}};
+\node[qbox, right=of l2] (l3) {\textbf{Couche 3 (quantique)}\\Q-SVM supervisé\\(noyau compute-uncompute)\\Décision dure};
+\node[above=0.6cm of l1, font=\small\itshape] (allin) {Toutes les transactions};
+\node[below=0.6cm of l1, font=\small, text=gray] (rej1) {Légitime};
+\node[below=0.6cm of l2, font=\small, text=gray] (rej2) {Légitime};
+\node[right=1.0cm of l3, font=\small] (out) {Fraude / Légitime};
+\draw[arr] (allin) -- (l1);
+\draw[arr] (l1) -- node[above, font=\scriptsize]{suspects} (l2);
+\draw[arr] (l2) -- node[above, font=\scriptsize]{suspects} (l3);
+\draw[arr] (l3) -- (out);
+\draw[rejarr] (l1.south) -- (rej1);
+\draw[rejarr] (l2.south) -- (rej2);
+\node[draw, dashed, fit=(l2)(l3), inner sep=5pt, label=above:{\footnotesize \emph{Couches quantiques (stratégie A+B)}}] {};
+\end{tikzpicture}
+\caption{Architecture de cascade hybride proposée (stratégie A+B). La couche 1 reste classique pour des raisons de passage à l'échelle. Les couches 2 et 3 intègrent respectivement un QLSTM hybride et un Q-SVM à noyau quantique, dans la continuité des briques Q-OCSVM développées en section~\ref{subsec:q-ocsvm}.}
+\label{fig:cascade-hybride}
+\end{figure}
+ 
+Cette architecture présente deux propriétés importantes au regard de notre démarche globale. D'une part, elle \emph{réutilise} directement le circuit \emph{compute-uncompute} développé pour le Q-OCSVM (section~\ref{subsec:q-ocsvm})~: la seule différence entre le Q-OCSVM non supervisé et le Q-SVM supervisé de la couche 3 est que ce dernier dispose de labels pour calibrer la frontière de décision, ce qui améliore mécaniquement la précision. D'autre part, elle \emph{délimite} clairement le périmètre quantique au sous-ensemble le plus difficile à classifier (les cas transmis après deux filtrages successifs), ce qui maximise l'utilité marginale du calcul quantique tout en minimisant son coût global.
  
 \subsection{Positionnement dans l'architecture globale}
  
-La cascade à couches s'intègre dans notre pipeline modulaire de deux manières complémentaires, illustrées dans la section~\ref{sec:pipeline}.
+La cascade à couches --- dans sa version classique comme dans sa version hybride --- s'intègre dans notre pipeline modulaire de deux manières complémentaires, illustrées dans la section~\ref{sec:pipeline}.
  
-Dans le premier schéma d'assemblage, elle est utilisée de manière \emph{autonome} comme brique supervisée de référence : elle reçoit les données prétraitées (après SMOTE/Tomek/PCA) et produit directement les décisions de fraude, sans intervention quantique. C'est dans cette configuration qu'elle est évaluée dans le benchmark de la section~\ref{sec:tests}.
+Dans le premier schéma d'assemblage, elle est utilisée de manière \emph{autonome} comme brique supervisée de référence~: elle reçoit les données prétraitées (après SMOTE/Tomek/PCA) et produit directement les décisions de fraude. C'est dans cette configuration qu'elle est évaluée dans le benchmark de la section~\ref{sec:tests}, en tant qu'Algorithme 1 étendu.
  
-Dans le second schéma, elle est utilisée en \emph{complément des briques quantiques} : le VQC ou le Q-OCSVM fournissent un score d'anomalie $s_i$ pour chaque transaction, et ce score est ajouté comme feature supplémentaire à l'entrée de la cascade. Cette combinaison hybride est analogue à l'Algorithme 3 de la section~\ref{sec:tests} (Q-OCSVM + Random Forest auto-supervisé), mais en remplaçant le Random Forest par notre cascade, qui dispose d'un meilleur contrôle du compromis rappel/précision par étage.
+Dans le second schéma, elle est utilisée en \emph{complément des briques non supervisées}~: le VQC ou le Q-OCSVM fournissent un score d'anomalie $s_i$ pour chaque transaction, et ce score est ajouté comme feature supplémentaire à l'entrée de la cascade. Cette combinaison hybride est analogue à l'Algorithme 3 de la section~\ref{sec:tests} (Q-OCSVM + Random Forest auto-supervisé), mais en remplaçant le Random Forest par notre cascade, qui dispose d'un meilleur contrôle du compromis rappel/précision par étage.
  
-Cette double utilisation illustre l'un des principes directeurs de notre démarche : les briques classiques et quantiques ne sont pas en compétition, mais complémentaires. Les algorithmes quantiques excellent dans la modélisation non supervisée de la normalité (en l'absence de labels) ; la cascade excelle dans l'exploitation de labels existants pour une décision précise et scalable. L'enjeu de l'assemblage est précisément de les faire coopérer pour dépasser les limites de chaque approche prise isolément.
+Cette double utilisation illustre l'un des principes directeurs de notre démarche~: les briques classiques et quantiques ne sont pas en compétition, mais complémentaires. Les algorithmes quantiques excellent dans la modélisation non supervisée de la normalité (en l'absence de labels)~; la cascade excelle dans l'exploitation de labels existants pour une décision précise et scalable. L'extension hybride de la cascade cherche à faire coopérer ces deux logiques au sein d'un même pipeline, en réservant le calcul quantique aux étages où son expressivité est la plus utile et son coût le plus supportable.
 
 \section{Assemblage d'une pipeline}
 
