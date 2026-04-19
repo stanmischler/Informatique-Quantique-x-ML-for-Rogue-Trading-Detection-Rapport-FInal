@@ -568,8 +568,10 @@ Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline e
 
 \subsection{Comparaison de 4 algorithmes sur un dataset tiers}
 
+Nous comparons 4 algorithmes différents qui évaluent nos pistes théoriques de modèle quantique. 
+
 \begin{enumerate}
-    \item Algorithme classique supervisé : Preprocessing + Random Forest (ou Tancrède)
+    \item Algorithme classique supervisé : Preprocessing + Random Forest
     \item Algorithme quantique non supervisé : Q-OCSVM
     \item Algorithme hybride autosupervisé : Q-OCSVM + Random Forest 
     \item Algorithme quantique supervisé : Preprocessing + Q-SVM
@@ -577,12 +579,21 @@ Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline e
 
 
 
-Le tableau de scores présenté synthétise les performances obtenues sur le jeu de données breast cancer \cite{street1993nuclear}, qui regroupe un total de 569 échantillons. Contrairement aux expérimentations portant sur la fraude bancaire, nous avons ici choisi un jeu de données traite une problématique médicale où les étiquettes correspondent aux classes diagnostiques du dataset : on dénombre 357 échantillons de label négatif (maladie bénigne) et 212 échantillons en de label positif (maladie maligne). Nous l'avons choisi car il est de petite taille avec un bon équilibre des classes ce qui permet d'obtenir de bons résultats sans beaucoup de puissance de calcul. L'intégralité du jeu de données a été conservée sans recours au sous-échantillonnage. Les données ont été partitionnées selon un ratio 70/30, délimitant ainsi les ensembles d'entraînement et de test, ce dernier étant ensuite subdivisé pour fournir les points de validation et d'évaluation finale. Afin de projeter les caractéristiques de ce dataset dans un espace d'embedding de 4 dimensions, une pipeline de prétraitement standardisée a été appliquée : elle comprend une imputation par la médiane, une standardisation des variables numériques et une réduction de dimension via PCA. Pour les modèles quantiques, ces coordonnées sont remises à l'échelle dans l'intervalle $[0, \pi]$ pour permettre le calcul du noyau quantique. Enfin, bien que le déséquilibre initial soit modéré, les branches supervisées appliquent un traitement local par SMOTETomek sur les données d'entraînement afin d'alimenter les modèles avec des classes strictement paritaires.
+Nous évaluons nos quatre algorithmes sur le jeu de données breast cancer \cite{street1993nuclear}, qui regroupe un total de 569 échantillons. Contrairement aux expérimentations portant sur la fraude bancaire, nous avons ici choisi un jeu de données traite une problématique médicale où les étiquettes correspondent aux classes diagnostiques du dataset : on dénombre 357 échantillons de label négatif (maladie bénigne) et 212 échantillons en de label positif (maladie maligne). Nous l'avons choisi car il est de petite taille avec un bon équilibre des classes ce qui permet d'obtenir de bons résultats sans beaucoup de puissance de calcul. L'intégralité du jeu de données a été conservée sans recours au sous-échantillonnage. Les données ont été partitionnées selon un ratio 70/30, délimitant ainsi les ensembles d'entraînement et de test, ce dernier étant ensuite subdivisé pour fournir les points de validation et d'évaluation finale. Afin de projeter les caractéristiques de ce dataset dans un espace d'embedding de 4 dimensions, une pipeline de prétraitement standardisée a été appliquée : elle comprend une imputation par la médiane, une standardisation des variables numériques et une réduction de dimension via PCA. Pour les modèles quantiques, ces coordonnées sont remises à l'échelle dans l'intervalle $[0, \pi]$ pour permettre le calcul du noyau quantique. Enfin, bien que le déséquilibre initial soit modéré, les branches supervisées appliquent un traitement local par SMOTE-Tomek sur les données d'entraînement afin d'alimenter les modèles avec des classes strictement paritaires.
 
 
 
 
-Voici les résultats sur le dataset : 
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{Scores.png} % Vous pouvez ajuster 0.8 (80% de la largeur)
+    \caption{Scores des 4 algorithmes sur le jeu de données breast cancer }
+    \label{fig:nom_de_votre_image}
+\end{figure}
+
+Le tableau de scores révèle que l'approche classique (Random Forest supervisé) domine nettement le classement avec un score F1 de 0,94 et un coefficient de corrélation de Matthews (MCC) de 0,85. L'algorithme hybride (Algo 3) offre un compromis intéressant en parvenant à égaler l'excellent rappel du modèle classique (0,97), bien que cela s'accompagne d'une chute notable de sa précision (0,69). Enfin, si les approches purement quantiques (Q-SVM supervisé et One-Class Q-SVM) demeurent encore en retrait avec les performances globales les plus faibles du comparatif, ces résultats n'en restent pas moins encourageants ; ils démontrent de manière tangible que, malgré les limitations matérielles actuelles, les algorithmes quantiques parviennent effectivement à extraire du signal et à apprendre des représentations pertinentes, ouvrant la voie à de futures optimisations. Bien qu'appliqué à des données bien différentes de celles du rogue trading, l'approche auto-supervisé de l'algorithme 3 donne des résultats très encourageants alors même qu'il est forcément pénalisé vu qu'il n'a pas accès aux labels.  
 
 \subsection{Application au jeu de données de la BNP}
 
