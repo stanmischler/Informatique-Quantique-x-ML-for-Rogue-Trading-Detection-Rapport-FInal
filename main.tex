@@ -25,7 +25,7 @@
 
 La détection de fraude bancaire est aujourd'hui l'un des enjeux opérationnels majeurs des grandes institutions financières. Le volume toujours croissant des transactions, la diversification des canaux de paiement et l'adaptation permanente des comportements frauduleux rendent la tâche particulièrement difficile pour les approches classiques, qui doivent composer avec des jeux de données massifs, déséquilibrés et en constante évolution. Dans ce contexte, l'informatique quantique, et plus particulièrement le \textit{Quantum Machine Learning} (QML), apparaît comme une voie prometteuse pour dépasser certaines limites théoriques des algorithmes classiques.
 
-Ce rapport final s'inscrit dans la continuité de nos travaux menés en collaboration avec BNP Paribas dans le cadre du PSC INF. Il présente la synthèse de notre démarche, depuis la définition du problème jusqu'à l'assemblage d'une pipeline hybride classique/quantique de détection de fraude, en passant par l'étude des briques algorithmiques individuelles — clustering, réseaux de neurones, détection d'anomalies — et par leur confrontation à des données réelles fournies par la banque.
+Ce rapport final s'inscrit dans la continuité de nos travaux menés en collaboration avec BNP Paribas dans le cadre du PSC INF. Il présente une synthèse de l'ensemble de nos travaux : les algorithmes que nous avons étudiés, les implémentations que nous avons mises en place, ainsi que leur confrontation aux données réelles fournies par la banque.
 
 \subsection{Motivation générale}
 
@@ -33,11 +33,11 @@ La détection de fraude constitue un enjeu à la fois économique, réglementair
 
 Les algorithmes quantiques promettent, du moins sur le plan théorique, des gains significatifs en complexité et en expressivité par rapport à leurs équivalents classiques, notamment pour des tâches de clustering, de détection d'anomalies ou de recherche dans des espaces de grande dimension. Cette promesse reste toutefois largement conditionnée par la maturité du matériel actuel — processeurs NISQ bruités, nombre limité de qubits, absence de QRAM opérationnelle — et par la capacité à concevoir des algorithmes véritablement adaptés aux contraintes du domaine bancaire.
 
-Notre projet vise précisément à explorer ce compromis entre potentiel théorique et faisabilité pratique. En collaboration avec BNP Paribas, nous avons cherché à concevoir et à implémenter une pipeline de détection de fraude intégrant des briques quantiques à des composantes classiques éprouvées, de manière à pouvoir mesurer rigoureusement l'apport de chaque approche. L'objectif final est double : d'une part, fournir à la BNP un proof of concept d'algorithme hybride capable d'analyser des transactions passées pour signaler les fraudes éventuelles sur de nouvelles transactions ; d'autre part, identifier les briques pour lesquelles l'approche quantique offre, dès aujourd'hui ou à moyen terme, un avantage tangible sur ses contreparties classiques.
+Nos objectifs sont d'explorer les différentes méthodes de \textit{machine learning} quantique pertinentes pour ce problème, de les comparer entre elles et à leurs contreparties classiques, et d'aboutir à une pipeline complète de détection de fraude. Le but final est de fournir à BNP Paribas une méthode hybride classique/quantique opérationnelle pour la détection de fraude bancaire.
 
 \subsection{État de l'art}
 
-La détection de fraude est un problème classique de classification supervisée fortement déséquilibrée, pour lequel la littérature classique est abondante (régressions logistiques, gradient boosting, forêts aléatoires, auto-encodeurs, réseaux de neurones profonds). Notre objectif n'est pas de rivaliser frontalement avec ces méthodes, mais d'examiner dans quelle mesure des algorithmes quantiques, ou hybrides classique/quantique, peuvent apporter un gain \emph{théorique} (complexité, expressivité) ou \emph{pratique} (qualité de détection) sur ce type de données. Nous distinguons quatre familles de travaux qui structurent notre état de l'art : les approches classiques de référence, le clustering quantique, la détection d'anomalies quantique, et les classifieurs QML supervisés.
+La détection de fraude est un problème classique de classification supervisée fortement déséquilibrée, pour lequel la littérature classique est abondante (régressions logistiques, gradient boosting, forêts aléatoires, auto-encodeurs, réseaux de neurones profonds). Notre objectif n'est pas de rivaliser frontalement avec ces méthodes, mais d'examiner dans quelle mesure des algorithmes quantiques, ou hybrides classique/quantique, peuvent apporter un gain \emph{théorique} (complexité, expressivité) ou \emph{pratique} (qualité de détection) sur ce type de données. Nous distinguons trois familles de travaux qui structurent notre état de l'art : les approches classiques de référence, le clustering quantique, et les classifieurs QML supervisés.
 
 \subsubsection{Approches classiques de référence}
 
@@ -45,41 +45,39 @@ Les méthodes classiques déployées en production reposent essentiellement sur 
 
 \subsubsection{Clustering quantique}
 
-Le clustering quantique a émergé avec la popularisation du \emph{Quantum Machine Learning} (QML) \cite{qml_survey}. Deux grandes familles se distinguent. La première est celle des algorithmes \emph{théoriquement optimaux} supposant l'existence d'une QRAM : Kerenidis et al. proposent un algorithme de $q$-means \cite{kerenidis_qmeans} dont la complexité est polylogarithmique en la taille du jeu de données, ainsi qu'un clustering spectral quantique \cite{kerenidis_spectral} exploitant l'estimation de phase pour diagonaliser efficacement la matrice laplacienne. Ces résultats sont spectaculaires sur le plan asymptotique, mais reposent sur des hypothèses d'accès aux données encore débattues, la réalisation physique d'une QRAM efficace restant un problème ouvert.
+La question du clustering quantique a commencé à être évoquée il y a quelques années, avec la popularisation du terme de \emph{Quantum Machine Learning} (QML) \cite{qml_survey}. Les limites actuelles des ordinateurs disponibles au grand public, en matière de taille comme de fiabilité (on parle de \emph{Noisy Intermediate-Scale Quantum} (NISQ) devices), empêchent toute forme d'implémentation fonctionnelle intégralement quantique.
 
-La seconde famille, \emph{variationnelle}, est spécifiquement conçue pour les ordinateurs bruités de type NISQ (\emph{Noisy Intermediate-Scale Quantum}). Bermejo et Orús \cite{bermejo_orus} proposent ainsi un clustering variationnel où un circuit paramétré $U(\theta)$ est optimisé par une boucle classique pour minimiser une fonction de coût reflétant la séparation inter-clusters. Poggiali et al. \cite{poggiali_kmeans} décrivent une variante hybride de $k$-means dans laquelle le calcul des distances est délégué à un sous-circuit quantique. Ces approches renoncent à la garantie de complexité polylogarithmique, mais sont implémentables sur le matériel actuel.
-
-\subsubsection{Détection d'anomalies quantique}
-
-La détection d'anomalies quantique est un domaine plus jeune et plus fragile : plusieurs articles publiés entre 2019 et 2023 contiennent des erreurs importantes, comme l'illustre Guo et al. \cite{guo_anomaly}, qui réfutent l'algorithme de Liang et al. \cite{liang_anomaly} et en proposent une version corrigée fondée sur des rotations contrôlées. La démarche générale reprend le schéma classique en deux temps : (i) apprentissage d'une représentation du comportement « normal » par clustering, et (ii) identification des outliers par une mesure de distance ou de densité. Les variantes quantiques diffèrent essentiellement par l'étape (ii), où l'amplitude d'un état produit ou le résultat d'une estimation d'amplitude fournissent un score d'anomalie. Là encore, la quasi-totalité des publications suppose un accès QRAM, ce qui limite leur portée expérimentale immédiate.
-
-Une approche récente particulièrement adaptée aux contraintes NISQ est celle des \emph{Quantum Autoencoders} (QAE), dont FiD-QAE \cite{fidqae2025} constitue une instance directement appliquée à la fraude bancaire. Le principe est simple et élégant : on encode chaque transaction $\vec{x}\in\mathbb{R}^N$ par \emph{amplitude encoding} dans $n = \lceil\log_2 N\rceil$ qubits, puis un encodeur paramétré $U(\theta)$ partitionne le registre en un sous-espace \emph{latent} $A$ (de dimension $n_A$) et un sous-espace \emph{trash} $B$ (de dimension $n_B$). On entraîne ensuite $\theta$ \emph{exclusivement sur les transactions légitimes} pour que le sous-espace $B$ soit comprimé sur un état de référence fixe $\ket{0}^{\otimes n_B}$, ce qui se mesure par la fidélité $F(\theta) = \langle 0|\rho_B(\theta)|0\rangle$ via un SWAP test. La fonction de coût minimisée est alors $\mathcal{L}(\theta) = 1 - \mathbb{E}_{\vec{x}}[F(\theta;\vec{x})]$. À l'inférence, une transaction frauduleuse — non vue à l'entraînement — produit une fidélité significativement plus basse, et un seuil $\tau$ permet de la signaler. L'élégance de cette construction réside dans son traitement implicite du déséquilibre de classes : on n'a jamais besoin d'exemples de fraude pour entraîner le modèle. Les auteurs rapportent une exactitude supérieure à $0{,}92$ et une précision supérieure à $0{,}80$ avec seulement quatre qubits, ce qui en fait un candidat sérieux pour notre brique de détection d'anomalies non supervisée.
+Nous pouvons noter qu'il existe deux articles auxquels nous ferons référence pour le clustering avec une approche purement quantique : Kerenidis et al. \cite{kerenidis_qmeans} pour un algorithme $q$-means, et Kerenidis et Landman \cite{kerenidis_spectral} pour un algorithme de clustering spectral quantique. Ces articles reposent cependant sur l'utilisation d'une QRAM, dont la réalisation physique efficace reste un problème ouvert et fait débat. Beaucoup d'articles se rabattent donc sur une approche hybride quantique/classique, exploitant l'architecture quantique pour certains calculs uniquement : Poggiali et al. \cite{poggiali_kmeans} proposent par exemple une telle implémentation de $k$-means, tandis que Bermejo et Orús \cite{bermejo_orus} présentent une approche variationnelle du clustering quantique.
 
 \subsubsection{Classifieurs QML supervisés}
 
-Le troisième pan de la littérature concerne les classifieurs supervisés quantiques, principalement les \emph{Variational Quantum Classifiers} (VQC) et les \emph{Quantum Neural Networks} (QNN). Un VQC encode une donnée classique $\vec{x}\in\mathbb{R}^d$ dans un état quantique $\ket{\psi(\vec{x})} = U_{\varphi(\vec{x})}\ket{0}^{\otimes n}$ via un \emph{feature map} $\varphi$, applique ensuite un ansatz paramétré $U(\theta)$, puis mesure une observable dont la valeur espérée définit un score de classification. Les paramètres $\theta$ sont optimisés classiquement (COBYLA, SPSA, Adam) pour minimiser une perte, typiquement la cross-entropie. L'introduction des \emph{feature maps} de Pauli et en particulier du \emph{ZZ feature map} par Havlíček et al. \cite{havlicek2019} a marqué un jalon en établissant un cadre reproductible pour exploiter les corrélations d'ordre deux entre variables dans l'espace de Hilbert.
-
-Plusieurs travaux récents enrichissent significativement ce paysage et nourrissent directement nos choix de conception. El Alami et al. \cite{elalami2026} fournissent une analyse comparative récente et particulièrement pertinente pour notre projet. Ils évaluent trois architectures QML — VQC, \emph{Sampler QNN} (SQNN, qui extrait des échantillons de la distribution de mesure pour alimenter un optimiseur classique) et \emph{Estimator QNN} (EQNN, hybride à base d'estimation d'observables suivie d'un réseau de neurones classique) — en faisant varier trois feature maps (Pauli, ZZ, Z) et quatre ansätze (Real Amplitudes, Efficient SU2, Two Local, Pauli Two Design). Leurs expériences sont menées sur le jeu public \emph{European credit card} (celui fourni dans \texttt{Data/creditcard.csv}) et sur le simulateur BankSim, après rééquilibrage \emph{Random Under Sampling} à 50/50. Ils recourent à une analyse de variance (ANOVA) pour quantifier l'effet individuel et croisé des composants, ce qui constitue une contribution méthodologique utile : elle permet d'identifier les combinaisons feature map/ansatz statistiquement significatives, et de dégager des configurations dont l'exactitude dépasse $0{,}98$ de F1-score sur leurs jeux de test. Ce travail nous servira de référence explicite dans la section \ref{sec:clustering}, à la fois comme source d'inspiration méthodologique (le protocole d'évaluation systématique) et comme témoin des performances atteignables par des classifieurs QML purement supervisés — complémentaires de notre approche, qui privilégie la détection d'anomalies et le clustering non supervisé.
-
-Là où El Alami et al. fixent manuellement les paires \emph{feature map}/\emph{ansatz} à comparer, Innan et al. proposent avec \emph{CircuitHunt} \cite{circuithunt2025} une démarche radicalement différente : ils \emph{automatisent} la recherche de circuits adaptés à la détection de fraude. Le principe repose sur un dataset pré-construit de circuits quantiques (KetGPT) couvrant des largeurs de 3 à 10 qubits, sur lequel on applique trois filtres successifs : un budget en qubits, un nombre maximal de paramètres entraînables (typiquement $P_{\max} = 30$), et une vérification de validité numérique par simulation à paramètres nuls. Chaque circuit candidat est ensuite intégré dans une architecture hybride uniforme — pré-réseau classique, encodage du vecteur d'entrée dans le circuit candidat, connexion résiduelle apprenable, post-réseau classique — et entraîné brièvement (5 époques) ; le meilleur macro-F1 sur validation détermine le circuit retenu, qui est alors ré-entraîné plus longuement. Sur le jeu \emph{Credit Card Fraud} (rééquilibré par SMOTE), le circuit sélectionné atteint un macro-F1 de $0{,}97$ et une AUC de $0{,}9946$, surpassant plusieurs architectures QML conçues à la main (EstimatorQNN, QGNN, SQNN, QFDNN). Cette méthodologie nous est doublement précieuse : d'une part comme \emph{baseline} très exigeante à dépasser, d'autre part comme inspiration pour notre propre démarche d'évaluation systématique des briques quantiques.
-
-Enfin, dans une direction orthogonale, Ubale et al. \cite{qlstm2025} explorent la composante \emph{temporelle} des transactions en proposant un \emph{Quantum LSTM} hybride. Leur architecture chaîne (i) un LSTM classique extrayant des dépendances temporelles d'une fenêtre glissante de transactions, (ii) une couche pleinement connectée projetant l'état caché $h_T$ vers $n_{\text{qubits}}$ dimensions, (iii) un VQC composé d'un \emph{AngleEmbedding} ($R_y(x_i)\ket{0}$ par qubit) suivi de couches \emph{StronglyEntanglingLayers} paramétrées, (iv) une mesure dans la base de Pauli-$Z$ produisant un vecteur de features quantiques, et (v) une couche dense finale de classification. Tout est entraîné de bout en bout par rétropropagation, les gradients du circuit étant calculés par la \emph{parameter-shift rule}. Sur des données synthétiques de $50\,000$ transactions enrichies par des features géospatiales (distance haversine entre client et marchand) et temporelles, leur QLSTM dépasse une LSTM classique sur précision, rappel et F1, tout en restant entraînable sur CPU en environ une minute par époque. Cet article suggère qu'une partie de l'avantage potentiel du quantique en détection de fraude pourrait précisément résider dans le traitement de données séquentielles, perspective que nous garderons en tête si les jeux BNP comportent une structure temporelle exploitable.
+Les classifieurs QML supervisés reposent majoritairement sur les \emph{Variational Quantum Classifiers} et les \emph{Quantum Neural Networks} : un \emph{feature map} encode la donnée $\vec{x}$ dans un état quantique, un ansatz paramétré $U(\theta)$ est ensuite appliqué, et la mesure d'une observable fournit un score optimisé classiquement (COBYLA, SPSA, Adam). Le \emph{ZZ feature map} introduit par Havlíček et al. \cite{havlicek2019} est devenu le cadre de référence pour exploiter les corrélations entre variables dans l'espace de Hilbert.
 
 \section{Présentation du projet}
 
 \subsection{Méthode générale}
 
-Notre démarche reprend et affine le squelette adopté par le groupe 2024-25 : une pipeline de détection de fraude articulée autour d'un bloc de \emph{clustering} — pour apprendre une représentation du comportement normal — et d'un bloc de \emph{détection d'anomalies} — pour signaler les transactions s'en écartant —, le tout assemblé dans une architecture modulaire dite \textit{plug \& play}. Notre contribution principale sur ce squelette est d'en pousser la décomposition : là où nos prédécesseurs traitaient le clustering et la détection d'anomalies comme deux étapes relativement couplées, nous cherchons à isoler plus finement les sous-étapes (préparation des données, extraction de features, apprentissage du modèle de normalité, calcul du score d'anomalie, seuillage de décision) afin d'autoriser une hybridation plus souple entre composantes classiques et quantiques. Chaque sous-étape respecte une interface commune et peut être remplacée par sa contrepartie alternative sans modifier le reste de la pipeline, ce qui nous permet de composer et de comparer des configurations entièrement classiques, entièrement quantiques, ou arbitrairement mixtes.
+Notre démarche a débuté par une phase d'\emph{exploration horizontale} : nous avons balayé plusieurs familles d'algorithmes candidats, y compris des pistes plus prospectives comme l'étude des transactions par transformée de Fourier quantique. Cette voie s'est révélée peu concluante --- résultats difficilement interprétables, littérature scientifique insuffisante sur le sujet appliqué à la fraude --- et nous avons choisi de la mettre de côté pour concentrer nos efforts sur des briques mieux maîtrisées théoriquement.
 
-Les briques quantiques effectivement implémentées dans ce rapport sont concentrées autour du \emph{clustering quantique variationnel}, qui constitue le cœur algorithmique de notre contribution. D'autres pistes quantiques — en particulier au niveau du préprocessing (réduction de dimension, encodage, variantes variationnelles de détection d'anomalies) — ont été explorées de manière plus prospective et font l'objet de discussions qualitatives plutôt que d'un benchmark exhaustif. Les architectures QML supervisées évoquées dans l'état de l'art (VQC, QAE, QLSTM) servent quant à elles de points de comparaison bibliographiques et n'ont pas été réimplémentées dans le cadre de ce projet.
+Cette exploration nous a menés à approfondir deux axes quantiques identifiés à partir d'une revue de la littérature : le \emph{clustering quantique variationnel} (VQC) et le \emph{Quantum One-Class SVM} (Q-OCSVM). À ces deux briques héritées de la littérature QML, nous ajoutons deux contributions propres à notre groupe : d'une part une étude approfondie du \emph{préprocessing} (SMOTE, Tomek Links, ACP, RFE) et de son impact sur les performances, d'autre part la conception d'une architecture en \emph{cascade hybride} (réseaux à couches) qui enchaîne plusieurs classifieurs de complexité croissante, dans la continuité directe de notre objectif final : aboutir à une pipeline générale de détection de fraude pour BNP Paribas.
 
-Notre travail s'est déroulé en trois phases. Dans un premier temps, l'ensemble du groupe s'est consacré à une étude collective de la littérature QML et à la prise en main des outils d'informatique quantique (Qiskit, simulateurs, primitives variationnelles). Dans un deuxième temps, les différentes briques ont été développées en parallèle, chacune faisant l'objet d'un traitement théorique et expérimental autonome. Le dernier mois a enfin été consacré à l'intégration de ces briques dans l'architecture modulaire décrite ci-dessus, et à la mise en place de benchmarks comparatifs classiques / quantiques sur un jeu de données commun.
+Nous reprenons l'approche \emph{plug \& play} initiée par le groupe 2024-25 : chaque brique (préprocessing, clustering, détection d'anomalies, classifieur) est implémentée comme un composant interchangeable respectant une interface commune, ce qui permet de composer et de comparer des configurations entièrement classiques, entièrement quantiques, ou hybrides sans réécrire le code global.
 
-À ce stade du projet, nous ne visons pas d'exécution sur processeur quantique réel : toutes nos expériences sont menées sur \texttt{AerSimulator}, ce qui nous autorise des tailles d'instance et des budgets de \textit{shots} supérieurs à ceux accessibles via les services cloud d'IBM, au prix de l'absence de bruit matériel. Nous ne faisons par ailleurs pas d'hypothèses simplificatrices fortes sur la distribution des données : contrairement au proof of concept de 2024-25, qui supposait des clusters gaussiens dans $\mathbb{R}^d$, notre pipeline est conçue pour s'accommoder de features hétérogènes et de distributions non paramétriques. Les limites matérielles et leurs conséquences sur la portée de nos conclusions sont discutées en section \ref{sec:clustering} et dans le chapitre consacré aux difficultés et critiques.
+\paragraph{Déroulement du travail.} Notre projet s'est structuré en trois phases. La première, \emph{individuelle}, a été consacrée à la familiarisation avec l'informatique quantique : visionnage des vidéos pédagogiques d'IBM, lecture de \emph{Quantum Computation and Quantum Information} de Nielsen et Chuang, recherche et synthèse d'articles pertinents pour notre problème. Dans un deuxième temps, nous nous sommes répartis en \emph{axes de travail} parallèles, chaque sous-groupe prenant en charge l'étude théorique et l'implémentation d'une brique. La troisième phase a consisté en une \emph{mise en commun} : agencement des briques les unes avec les autres, benchmarks comparatifs et évaluation de la pipeline vis-à-vis de notre objectif final.
+
+\paragraph{Traitement séparé des données BNP.} Les données fournies par BNP Paribas nécessitent un \emph{préprocessing} conséquent --- variables catégorielles à forte cardinalité, absence de labels, volumétrie importante --- qui en a fait un chantier à part entière. Nous les avons donc traitées de manière séparée pendant la majeure partie du projet, et validé nos algorithmes sur des jeux alternatifs publiquement disponibles (Kaggle, \emph{breast cancer}, etc., détaillés plus tard), qui offrent une vérité terrain exploitable pour comparer rigoureusement nos briques.
+
+\paragraph{Environnement technique.} Toutes nos expériences ont été menées sur simulateur : Qiskit (\texttt{AerSimulator}) et PennyLane, pilotés depuis Python. Nous n'avons pas fait appel au hardware IBM, ce qui nous autorise des tailles d'instance et des budgets de \textit{shots} supérieurs à ceux accessibles sur processeur réel, au prix de l'absence de bruit matériel --- limite que nous discutons dans le chapitre consacré aux difficultés et critiques.
 
 \subsection{Données utilisées}
 
-Nous avons travaillé sur deux jeux de données complémentaires. Le premier, fourni par BNP Paribas, est le jeu cible de notre étude ; sa particularité est de comporter des variables catégorielles à forte cardinalité — identifiants de traders, localisations — qui ne se prêtent pas directement aux algorithmes géométriques sur lesquels reposent la plupart de nos briques de clustering et de détection d'anomalies. Nous consacrons une section dédiée (\ref{sec:bnp}) aux pistes explorées pour transformer ces features qualitatives en représentations numériques exploitables. Le second jeu, utilisé pour le benchmarking systématique de nos briques, est un jeu public de transactions Revolut publié sur Kaggle \cite{revolut_kaggle} : directement étiqueté en classes fraude / non-fraude, il fournit une vérité terrain nette qui nous permet de comparer rigoureusement les variantes classiques et quantiques de chaque brique, et d'isoler ainsi l'apport algorithmique indépendamment des difficultés de préparation propres aux données BNP.
+Nous avons travaillé sur trois jeux de données complémentaires.
+
+\begin{itemize}
+    \item \textbf{Données BNP Paribas.} Jeu cible de notre étude, caractérisé par des variables catégorielles à forte cardinalité (identifiants de traders, localisations) qui ne se prêtent pas directement aux algorithmes géométriques. Nous lui consacrons une section dédiée (\ref{sec:bnp}) pour leur prétraitement.
+    \item \textbf{\emph{Credit Card Fraud Detection}} \cite{ulb_creditcard}. Jeu public Kaggle de $284\,807$ transactions européennes (septembre 2013), dont $492$ fraudes ($0{,}17\%$, fortement déséquilibré). Features anonymisées par ACP ($V_1, \dots, V_{28}$) plus \emph{Time} et \emph{Amount}, avec labels binaires : une vérité terrain nette nous permettant d'implémenter certains de nos algorithmes.
+    \item \textbf{\emph{Breast Cancer Wisconsin}} \cite{breast_cancer_kaggle}. Jeu public Kaggle de $569$ diagnostics de tumeurs (357 bénignes, 212 malignes) caractérisées par $30$ variables numériques. De petite taille et de classes relativement équilibrées, il nous sert de terrain de benchmark rapide pour comparer nos briques classiques et quantiques.
+\end{itemize}
 
 \section{Données de la BNP}\label{sec:bnp}
 
@@ -352,7 +350,7 @@ Nous appliquons ce modèle amélioré au même sous-ensemble de $200$ transactio
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.55\linewidth]{".png/Improved QVC points.png"}
+\includegraphics[width=0.55\linewidth,trim={15 0 0 0},clip]{".png/Improved QVC points.png"}
 \caption{Clustering quantique variationnel \emph{amélioré} sur les mêmes $200$ transactions, visualisé dans l'espace des trois composantes principales.}
 \label{fig:qcl-improved-clusters}
 \end{figure}
@@ -420,7 +418,7 @@ Transactions signalées & $15 / 200$ \\
 \label{tab:qcl-v3-results}
 \end{table}
 
-\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM.
+\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du QSVM.
 
 
 
@@ -485,6 +483,19 @@ Si le clustering variationnel vise à regrouper les données en plusieurs catég
 \label{eq:ocsvm_primal}
 \end{equation}
 
+En introduisant les multiplicateurs de Lagrange $\alpha_i$ associés aux contraintes de marge, le passage au dual (cf.~section~\ref{subsec:svm-classique}) fait disparaître $\vec{w}$, $\rho$ et $\vec{\xi}$, et ne laisse apparaître les données qu'au travers du noyau $K(\vec{x}_i, \vec{x}_j) = \braket{\phi(\vec{x}_i)\,|\,\phi(\vec{x}_j)}$. Le problème dual s'écrit :
+\begin{equation}
+\begin{aligned}
+    & \min_{\vec{\alpha}}
+    & & \frac{1}{2} \sum_{i,j=1}^{N} \alpha_i \alpha_j\, K(\vec{x}_i, \vec{x}_j) \\
+    & \text{sous contraintes}
+    & & 0 \leq \alpha_i \leq \frac{1}{\nu N}, \quad \forall i \in \{1, \dots, N\} \\
+    & & & \sum_{i=1}^{N} \alpha_i = 1
+\end{aligned}
+\label{eq:ocsvm_dual}
+\end{equation}
+C'est cette formulation duale, dont la complexité ne dépend que de $N$ et qui n'interagit avec les données qu'à travers la matrice de Gram $K$, qui permet précisément de brancher un calcul de noyau quantique à la place du noyau classique, sans rien changer à l'étape d'optimisation.
+
 Ainsi, bien que le SVM classique soit fondamentalement un algorithme d'apprentissage supervisé (nécessitant des étiquettes pour séparer deux classes distinctes), l'OCSVM s'inscrit dans un cadre strictement non supervisé. L'astuce géométrique consiste à fournir uniquement des données normales à l'algorithme (ou à défaut des données passées) et à contraindre l'optimisation pour que tous ces points soient confinés du même côté d'un hyperplan, tandis que l'origine de l'espace de représentation est artificiellement repoussée de l'autre côté, jouant le rôle de la classe adverse.
 
 L'intérêt majeur de cette méthode pour notre pipeline hybride réside dans la séparation très nette des tâches. Nous n'utilisons le processeur quantique que pour une seule chose : évaluer à quel point deux transactions se ressemblent. Toute la partie d'optimisation (le tracé de la frontière) reste confiée à un algorithme classique. 
@@ -497,20 +508,33 @@ Concrètement, chaque transaction $\vec{x}_i \in \mathbb{R}^d$ est encodée sous
 \[
 \ket{\psi(\vec{x}_i)} \;=\; U(\vec{x}_i)\ket{0}^{\otimes n}
 \]
-L'espace dans lequel nous travaillons n'est plus un espace euclidien standard, mais l'espace de Hilbert de nos $n$ qubits, dont la dimension croît de manière exponentielle en $2^n$. En utilisant des circuits d'encodage qui intriquent les qubits (comme les feature maps basés sur des portes de Pauli \cite{havlicek2019}), nous exploitons des corrélations très complexes entre les différentes caractéristiques (montant, heure, localisation) de la transaction. La similarité entre deux transactions $\vec{x}_i$ et $\vec{x}_j$ correspond alors tout simplement à la probabilité de transition entre leurs deux états quantiques, c'est-à-dire leur fidélité :
+L'espace dans lequel nous travaillons n'est plus un espace euclidien standard, mais l'espace de Hilbert de nos $n$ qubits, dont la dimension croît de manière exponentielle en $2^n$. En utilisant des circuits d'encodage qui intriquent les qubits (comme les feature maps basés sur des portes de Pauli \cite{havlicek2019}), nous exploitons des corrélations très complexes entre les différentes caractéristiques (montant, heure, localisation) de la transaction. La similarité entre deux transactions $\vec{x}_i$ et $\vec{x}_j$ s'écrit alors comme le produit scalaire de leurs deux états quantiques :
 \[
-K_Q(\vec{x}_i, \vec{x}_j) \;=\; \bigl|\!\braket{\psi(\vec{x}_i)\,|\,\psi(\vec{x}_j)}\!\bigr|^2
+K_Q(\vec{x}_i, \vec{x}_j) \;=\; \braket{\psi(\vec{x}_i)\,|\,\psi(\vec{x}_j)}
 \]
+(avec des circuits à amplitudes réelles, ce qui est notre cas, $K_Q$ est réel et positif).
 
 \subsubsection*{Le circuit de calcul (Compute-Uncompute)}
 
-Pour estimer cette fidélité sur machine, nous pourrions utiliser le \emph{SWAP test} présenté dans la section précédente. Cependant, le SWAP test nécessite de doubler le nombre de qubits pour stocker les deux états simultanément, en plus d'un qubit ancillaire. Sur les processeurs actuels, chaque qubit supplémentaire apporte du bruit.
+Pour estimer la similarité entre deux états sur machine, nous pourrions utiliser le \emph{SWAP test} présenté dans la section précédente. Cependant, le SWAP test nécessite de doubler le nombre de qubits pour stocker les deux états simultanément, en plus d'un qubit ancillaire. Sur les processeurs actuels, chaque qubit supplémentaire apporte du bruit.
 
-D'après la littérature d'apprentissage quantique à base de noyaux \cite{schuld2019qml} il est préférable d'utiliser une technique appelée \emph{inversion} ou \emph{compute-uncompute}. L'idée est de n'utiliser qu'un seul registre de $n$ qubits. On applique d'abord le circuit d'encodage pour la première transaction, puis on applique l'inverse du circuit paramétré avec la seconde transaction :
+D'après la littérature d'apprentissage quantique à base de noyaux \cite{schuld2019qml} il est préférable d'utiliser une technique appelée \emph{inversion} ou \emph{compute-uncompute}. L'idée est de n'utiliser qu'un seul registre de $n$ qubits. On applique d'abord le circuit d'encodage pour la première transaction, puis on applique l'inverse du circuit paramétré avec la seconde transaction. L'état final du registre s'écrit :
 \[
-\ket{\psi_{i,j}} \;=\; U^\dagger(\vec{x}_j) \, U(\vec{x}_i)\ket{0}^{\otimes n}
+\ket{\psi_{i,j}} \;=\; U^\dagger(\vec{x}_j) \, U(\vec{x}_i)\ket{0}^{\otimes n}.
 \]
-Si les deux transactions sont identiques ($\vec{x}_i = \vec{x}_j$), l'opération globale équivaut à l'identité, et le registre retourne exactement dans l'état $\ket{0}^{\otimes n}$. Si elles diffèrent, la probabilité de mesurer l'état de base diminue. Ainsi, en mesurant simplement la fréquence d'apparition de la chaîne de bits $00\dots0$, nous obtenons une estimation directe de notre noyau quantique.
+La probabilité de mesurer la chaîne $\ket{0}^{\otimes n}$ dans la base computationnelle vaut alors, par définition :
+\[
+P\!\left(0^{\otimes n}\right) \;=\; \bigl|\bra{0}^{\otimes n} U^\dagger(\vec{x}_j)\, U(\vec{x}_i) \ket{0}^{\otimes n}\bigr|^2 \;=\; \bigl|\!\braket{\psi(\vec{x}_j)\,|\,\psi(\vec{x}_i)}\!\bigr|^2 \;=\; \bigl|K_Q(\vec{x}_i, \vec{x}_j)\bigr|^2.
+\]
+\paragraph{Protocole d'estimation de $K_Q(\vec{x}_i,\vec{x}_j)$.}
+\begin{enumerate}
+    \item Préparer le registre dans l'état $\ket{0}^{\otimes n}$.
+    \item Appliquer le circuit d'encodage $U(\vec{x}_i)$ (\emph{compute}).
+    \item Appliquer son inverse $U^\dagger(\vec{x}_j)$ paramétré par le second point (\emph{uncompute}).
+    \item Mesurer tous les qubits dans la base computationnelle.
+    \item Répéter $P$ fois et estimer $\widehat{|K_Q|^2} = n_0 / P$, où $n_0$ est le nombre de tirs ayant produit la chaîne $00\dots0$, puis poser $\widehat{K}_Q(\vec{x}_i, \vec{x}_j) = \sqrt{\widehat{|K_Q|^2}}$.
+\end{enumerate}
+L'estimateur du module au carré converge vers $|K_Q|^2$ avec une variance en $\mathcal{O}(1/P)$ ; le nombre de tirs fixe donc la précision du noyau transmis au solveur classique.
 
 \begin{figure}[H]
 \centering
@@ -519,7 +543,7 @@ Si les deux transactions sont identiques ($\vec{x}_i = \vec{x}_j$), l'opération
 \lstick{$\ket{0}^{\otimes n}$} & \gate{U(\vec{x}_i)} & \gate{U^\dagger(\vec{x}_j)} & \meter{}
 \end{quantikz}
 \shorthandon{:}
-\caption{Évaluation de la similarité entre deux transactions par la méthode d'inversion. Le registre est préparé selon les caractéristiques du point $\vec{x}_i$, puis subit la transformation inverse paramétrée par $\vec{x}_j$. La mesure de l'état fondamental $\ket{0\dots0}$ nous donne directement la valeur du noyau $K_Q(\vec{x}_i, \vec{x}_j)$.}
+\caption{Évaluation de la similarité entre deux transactions par la méthode d'inversion. Le registre est préparé selon les caractéristiques du point $\vec{x}_i$, puis subit la transformation inverse paramétrée par $\vec{x}_j$. La fréquence de mesure de l'état fondamental $\ket{0\dots0}$ nous donne le module au carré du noyau $|K_Q(\vec{x}_i, \vec{x}_j)|^2$.}
 \label{fig:compute-uncompute}
 \end{figure}
 
@@ -541,7 +565,7 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
         \item Pour chaque paire de points $(\vec{x}_i, \vec{x}_j)$ avec $i \leq j$ :
         \begin{itemize}
             \item Exécuter le circuit d'inversion $U^\dagger(\vec{x}_j) U(\vec{x}_i)\ket{0}^{\otimes n}$ sur le simulateur.
-            \item Estimer la fidélité $K_Q(\vec{x}_i, \vec{x}_j)$ via la fréquence de mesure de l'état $\ket{0}^{\otimes n}$ sur $P$ répétitions.
+            \item Estimer le module au carré $|K_Q(\vec{x}_i, \vec{x}_j)|^2$ via la fréquence de mesure de l'état $\ket{0}^{\otimes n}$ sur $P$ répétitions, puis en prendre la racine carrée pour obtenir $K_Q(\vec{x}_i, \vec{x}_j)$ (circuit à amplitudes réelles positives).
             \item Remplir la matrice : $\mathcal{K}_{ij} = \mathcal{K}_{ji} = K_Q(\vec{x}_i, \vec{x}_j)$.
         \end{itemize}
     \end{itemize}
@@ -553,6 +577,16 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
         \item Classer $\vec{z}$ comme fraude si $f(\vec{z}) < 0$.
     \end{itemize}
 \end{enumerate}
+
+\paragraph{Intuition derrière le score de décision.} La relation de stationnarité du dual donne
+\[
+\vec{w} = \sum_{i} \alpha_i\, \phi(\vec{x}_i).
+\]
+$\vec{w}$ est le vecteur normal de notre hyperplan séparateur, et $\rho$ en est le seuil de décision. Pour classer une nouvelle transaction $\vec{z}$, il suffit alors de regarder de quel côté de l'hyperplan elle tombe : on projette $\phi(\vec{z})$ sur la direction $\vec{w}$ et on compare au seuil, ce qui revient à calculer
+\[
+f(\vec{z}) \;=\; \vec{w} \cdot \phi(\vec{z}) - \rho \;=\; \sum_{\text{sv}} \alpha_{\text{sv}}\, K_Q(\vec{x}_{\text{sv}}, \vec{z}) - \rho.
+\]
+Si $f(\vec{z}) \geq 0$, la transaction est du côté « normal » de l'hyperplan (ressemblance suffisante aux vecteurs de support légitimes) ; si $f(\vec{z}) < 0$, elle est rejetée comme fraude.
 
 \section{Réseaux à couches}
 \label{sec:cascade}
@@ -783,12 +817,21 @@ Nous évaluons nos quatre algorithmes sur le jeu de données breast cancer \cite
 
 
 
-\begin{figure}[H]
+\begin{table}[H]
     \centering
-    \includegraphics[width=0.8\linewidth]{.png/Scores.png} % Vous pouvez ajuster 0.8 (80% de la largeur)
-    \caption{Scores des 4 algorithmes sur le jeu de données breast cancer }
-    \label{fig:nom_de_votre_image}
-\end{figure}
+    \begin{tabular}{lccccc}
+        \hline
+        Modèle & Précision & Rappel & $F_1$ & MCC & Taux positif \\
+        \hline
+        Algo1\_RF\_supervise              & $0{,}920$ & $0{,}972$ & $0{,}945$ & $0{,}850$ & $0{,}658$ \\
+        Algo3\_OC\_QSVM\_plus\_RF\_pseudo & $0{,}697$ & $0{,}972$ & $0{,}812$ & $0{,}393$ & $0{,}868$ \\
+        Algo4\_QSVM\_supervise            & $0{,}770$ & $0{,}803$ & $0{,}786$ & $0{,}414$ & $0{,}649$ \\
+        Algo2\_OC\_QSVM                   & $0{,}750$ & $0{,}718$ & $0{,}734$ & $0{,}319$ & $0{,}596$ \\
+        \hline
+    \end{tabular}
+    \caption{Scores des 4 algorithmes sur le jeu de données breast cancer.}
+    \label{tab:scores-breast-cancer}
+\end{table}
 
 Le tableau de scores révèle que l'approche classique (Random Forest supervisé) domine nettement le classement avec un score F1 de 0,94 et un coefficient de corrélation de Matthews (MCC) de 0,85. L'algorithme hybride (Algo 3) offre un compromis intéressant en parvenant à égaler l'excellent rappel du modèle classique (0,97), bien que cela s'accompagne d'une chute notable de sa précision (0,69). Enfin, si les approches purement quantiques (Q-SVM supervisé et One-Class Q-SVM) demeurent encore en retrait avec les performances globales les plus faibles du comparatif, ces résultats n'en restent pas moins encourageants ; ils démontrent de manière tangible que, malgré les limitations matérielles actuelles, les algorithmes quantiques parviennent effectivement à extraire du signal et à apprendre des représentations pertinentes, ouvrant la voie à de futures optimisations. Bien qu'appliqué à des données bien différentes de celles du rogue trading, l'approche auto-supervisé de l'algorithme 3 donne des résultats très encourageants alors même qu'il est forcément pénalisé vu qu'il n'a pas accès aux labels.  
 
@@ -822,56 +865,53 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 
 \begin{thebibliography}{99}
 
-\bibitem{SMOTE2025}
-    J. Thompson et al. 2025. A Quantum Approach to Synthetic Minority Oversampling Technique (SMOTE). Quantum Machine Intelligence.
+% --- Apprentissage automatique classique : SVM, noyaux, rééquilibrage, métriques ---
 
-\bibitem{chawla2002smote} N.~V. Chawla, K.~W. Bowyer, L.~O. Hall, W.~P. Kegelmeyer, \textit{SMOTE: Synthetic Minority Over-sampling Technique}, Journal of Artificial Intelligence Research, vol.~16, pp.~321--357, 2002.
+\bibitem{boser1992kernel} B.~E.~Boser, I.~M.~Guyon, V.~N.~Vapnik, \textit{A training algorithm for optimal margin classifiers}, Proceedings of the fifth annual workshop on Computational learning theory, pp.~144--152, 1992.
+
+\bibitem{cortes1995svm} C.~Cortes, V.~Vapnik, \textit{Support-vector networks}, Machine Learning, vol.~20, pp.~273--297, 1995.
+
+\bibitem{scholkopf2001ocsvm} B.~Schölkopf, J.~C.~Platt, J.~Shawe-Taylor, A.~J.~Smola, R.~C.~Williamson, \textit{Estimating the Support of a High-Dimensional Distribution}, Neural Computation, vol.~13, pp.~1443--1471, 2001.
+
+\bibitem{chawla2002smote} N.~V.~Chawla, K.~W.~Bowyer, L.~O.~Hall, W.~P.~Kegelmeyer, \textit{SMOTE: Synthetic Minority Over-sampling Technique}, Journal of Artificial Intelligence Research, vol.~16, pp.~321--357, 2002.
+
+\bibitem{Rousseeuw1987} P.~J.~Rousseeuw, \textit{Silhouettes: a Graphical Aid to the Interpretation and Validation of Cluster Analysis}, Journal of Computational and Applied Mathematics, vol.~20, pp.~53--65, 1987. \url{https://doi.org/10.1016/0377-0427(87)90125-7}.
+
+\bibitem{Shahapure2020} K.~R.~Shahapure, C.~Nicholas, \textit{Cluster Quality Analysis Using Silhouette Score}, IEEE 7th International Conference on Data Science and Advanced Analytics (DSAA), pp.~747--748, 2020. \url{https://doi.org/10.1109/DSAA49011.2020.00096}.
+
+\bibitem{street1993nuclear} W.~N.~Street, W.~H.~Wolberg, O.~L.~Mangasarian, \textit{Nuclear feature extraction for breast cancer diagnosis}, Biomedical Image Processing and Biomedical Visualization, vol.~1905, pp.~132--144, 1993.
+
+% --- Apprentissage automatique quantique : panorama, clustering, noyaux quantiques ---
 
 \bibitem{qml_survey} J.~Biamonte, P.~Wittek, N.~Pancotti, P.~Rebentrost, N.~Wiebe, S.~Lloyd, \textit{Quantum Machine Learning}, Nature, vol.~549, pp.~195--202, 2017.
+
+\bibitem{schuld2019qml} M.~Schuld, N.~Killoran, \textit{Quantum Machine Learning in Feature Spaces}, Physical Review Letters, vol.~122, 040504, 2019.
+
+\bibitem{havlicek2019} V.~Havlíček, A.~D.~Córcoles, K.~Temme, A.~W.~Harrow, A.~Kandala, J.~M.~Chow, J.~M.~Gambetta, \textit{Supervised learning with quantum-enhanced feature spaces}, Nature, vol.~567, pp.~209--212, 2019.
 
 \bibitem{kerenidis_qmeans} I.~Kerenidis, J.~Landman, A.~Luongo, A.~Prakash, \textit{q-means: A quantum algorithm for unsupervised machine learning}, Advances in Neural Information Processing Systems (NeurIPS), 2019.
 
 \bibitem{kerenidis_spectral} I.~Kerenidis, J.~Landman, \textit{Quantum spectral clustering}, Physical Review A, vol.~103, 042415, 2021.
 
-\bibitem{poggiali_kmeans} A.~Poggiali, A.~Berti, A.~Bernasconi, G.~M. Del~Corso, R.~Guidotti, \textit{Quantum Clustering with k-Means: a Hybrid Approach}, Theoretical Computer Science, 2024.
-
 \bibitem{bermejo_orus} P.~Bermejo, R.~Orús, \textit{Variational quantum and quantum-inspired clustering}, Scientific Reports, vol.~13, 13284, 2023.
 
-\bibitem{guo_anomaly} M.~Guo, H.~Liu, Y.~Li, W.~Li, F.~Gao, S.~Qin, Q.~Wen, \textit{Quantum algorithms for anomaly detection using amplitude estimation}, Physica A, vol.~604, 127936, 2022.
+\bibitem{poggiali_kmeans} A.~Poggiali, A.~Berti, A.~Bernasconi, G.~M.~Del~Corso, R.~Guidotti, \textit{Quantum Clustering with k-Means: a Hybrid Approach}, Theoretical Computer Science, 2024.
 
-\bibitem{liang_anomaly} J.-M. Liang, S.-Q. Shen, M.~Li, L.~Li, \textit{Quantum anomaly detection with density estimation and multivariate Gaussian distribution}, Physical Review A, vol.~99, 052310, 2019.
+% --- Applications récentes du QML à la détection de fraude ---
 
-\bibitem{havlicek2019} V.~Havlíček, A.~D. Córcoles, K.~Temme, A.~W. Harrow, A.~Kandala, J.~M. Chow, J.~M. Gambetta, \textit{Supervised learning with quantum-enhanced feature spaces}, Nature, vol.~567, pp.~209--212, 2019.
+\bibitem{qlstm2025} R.~Ubale, S.~K.~K., S.~Deshpande, G.~T.~Byrd, \textit{Toward Practical Quantum Machine Learning: A Novel Hybrid Quantum LSTM for Fraud Detection}, arXiv:2505.00137, avril 2025.
+
+\bibitem{SMOTE2025} J.~Thompson et al., \textit{A Quantum Approach to Synthetic Minority Oversampling Technique (SMOTE)}, Quantum Machine Intelligence, 2025.
+
+\bibitem{abbou2025vqc} F.~M.~Abbou, M.~Bouhadda, L.~Bouanane, M.~Kettani, F.~Abdi, A.~Abid, \textit{Comprehensive Analysis of VQC for Financial Fraud Detection: A Comparative Study of Quantum Encoding Techniques and Architectural Optimizations}, arXiv:2509.25245, septembre 2025.
 
 \bibitem{elalami2026} M.~El~Alami, N.~Innan, M.~Shafique, M.~Bennai, \textit{Comparative Performance Analysis of Quantum Machine Learning Architectures for Credit Card Fraud Detection}, arXiv:2412.19441, janvier 2026.
 
-\bibitem{circuithunt2025} N.~Innan, A.~Singh, M.~Shafique, \textit{CircuitHunt: Automated Quantum Circuit Screening for Superior Credit-Card Fraud Detection}, arXiv:2508.21366, août 2025.
+% --- Jeux de données ---
 
-\bibitem{fidqae2025} M.~El~Alami, A.~Innan, N.~Innan, M.~Shafique, M.~Bennai, \textit{FiD-QAE: A Fidelity-Driven Quantum Autoencoder for Credit Card Fraud Detection}, arXiv:2512.12689, décembre 2025.
+\bibitem{ulb_creditcard} \textit{Credit Card Fraud Detection}, jeu de données public, Kaggle. \url{https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud}.
 
-\bibitem{qlstm2025} R.~Ubale, S.~K.~K., S.~Deshpande, G.~T. Byrd, \textit{Toward Practical Quantum Machine Learning: A Novel Hybrid Quantum LSTM for Fraud Detection}, arXiv:2505.00137, avril 2025.
-
-\bibitem{abbou2025vqc} F.~M. Abbou, M.~Bouhadda, L.~Bouanane, M.~Kettani, F.~Abdi, A.~Abid, \textit{Comprehensive Analysis of VQC for Financial Fraud Detection: A Comparative Study of Quantum Encoding Techniques and Architectural Optimizations}, arXiv:2509.25245, septembre 2025.
-
-\bibitem{revolut_kaggle} \textit{Revolut Bank Transactions Fraud Detection Dataset}, jeu de données public, Kaggle. \texttt{https://www.archambault.ca/livres/5-ans-de-r}%C3%A9flexions-journal-%C3%A0-compl%C3%A9ter-nul-besoin-d'%C3%AAtre-%C3%A9crivain-pour-faire-de-sa-vie-un-roman-n-%C3%A9d/collectif/9782501097840/?id=1641238}.
-
-
-\bibitem{street1993nuclear} 
-W.~N. Street, W.~H. Wolberg et O.~L. Mangasarian, \textit{Nuclear feature extraction for breast cancer diagnosis}, Biomedical image processing and biomedical visualization, vol. 1905, pp. 132--144, 1993.
-
-\bibitem{cortes1995svm} C.~Cortes, V.~Vapnik, \textit{Support-vector networks}, Machine Learning, vol.~20, pp.~273--297, 1995.
-
-\bibitem{boser1992kernel} B.~E.~Boser, I.~M.~Guyon, V.~N.~Vapnik, \textit{A training algorithm for optimal margin classifiers}, Proceedings of the fifth annual workshop on Computational learning theory, pp.~144--152, 1992.
-
-\bibitem{scholkopf2001ocsvm} B.~Schölkopf, J.~C.~Platt, J.~Shawe-Taylor, A.~J.~Smola, R.~C.~Williamson, \textit{Estimating the Support of a High-Dimensional Distribution}, Neural Computation, vol.~13, pp.~1443--1471, 2001.
-
-\bibitem{schuld2019qml} M.~Schuld, N.~Killoran, \textit{Quantum Machine Learning in Feature Spaces}, Physical Review Letters, vol.~122, 040504, 2019.
-
-\bibitem{Rousseeuw1987} 
-P.~J.~Rousseeuw, \textit{Silhouettes: a Graphical Aid to the Interpretation and Validation of Cluster Analysis}, Journal of Computational and Applied Mathematics, vol.~20, pp.~53--65, 1987. \url{https://doi.org/10.1016/0377-0427(87)90125-7}.
-
-\bibitem{Shahapure2020} 
-K.~R.~Shahapure, C.~Nicholas, \textit{Cluster Quality Analysis Using Silhouette Score}, IEEE 7th International Conference on Data Science and Advanced Analytics (DSAA), pp.~747--748, 2020. \url{https://doi.org/10.1109/DSAA49011.2020.00096}.
+\bibitem{breast_cancer_kaggle} \textit{Breast Cancer Wisconsin (Diagnostic) Data Set}, jeu de données public, Kaggle. \url{https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data}.
 
 \end{thebibliography}
 
