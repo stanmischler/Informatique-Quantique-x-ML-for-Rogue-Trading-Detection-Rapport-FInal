@@ -86,39 +86,33 @@ Nous avons travaillé sur deux jeux de données complémentaires. Le premier, fo
 
 \section{Techniques de preprocessing}
 
-Le but du machine learning est de faire de l'apprentissage à partir de notre jeu de données. Cependant, une étape clé en amont de l'apprentissage est de modifier ce jeu de données pour le rendre plus exploitable, plus performant, plus apte à révéler de l'information. Ainsi nous présentons plusieurs méthodes dites de Preprocessing pour optimiser notre jeu de données : SMOTE, Tomek Links, PCA et RFE. Voici en quoi ils consistent et quel est leur intérêt : \\
+Le but du machine learning est de faire de l'apprentissage à partir de notre jeu de données. Cependant, une étape clé en amont de l'apprentissage est de modifier ce jeu de données pour le rendre plus exploitable, plus performant, plus apte à révéler de l'information. Ainsi nous présentons plusieurs méthodes dites de Preprocessing pour optimiser notre jeu de données : SMOTE, Tomek Links, PCA et RFE. Voici en quoi ils consistent et quel est leur intérêt : 
     
-    \begin{itemize}
+\begin{itemize}
+\item SMOTE (Synthetic Minority Over-sampling TEchnique) : concerne l'apprentissage supervisé, c'est-à-dire qu'il nécessite des données labellisées (fraude ou non). L'idée est que, dans un cas qui arrive souvent où dans nos labels il y a peu de données frauduleuses, alors l'apprentissage est peu efficace car il compare souvent des données non frauduleuses entre elles et les cas de fraude sont donc rares, donc plus enrichissants. Ainsi le but est de rééquilibrer les proportions artificiellement. Pour la détection de fraude, on a souvent moins de 0.1 \% des données qui sont frauduleuses. L'idée est de plutôt s'approcher d'un ratio 99 \% - 1\% ou 95 \% - 5\%. Pour cela, on prend une paire de données frauduleuses et on ajoute à notre base de données une donnée frauduleuse qui se trouve à leur milieu dans le plan. On peut également choisir un barycentre différent ou le prendre de manière aléatoire. L'idée étant que notre nouveau point est proche de données frauduleuses, il est donc très suspect d'être frauduleux.
 
-\item  SMOTE (Synthetic Minority Over-sampling TEchnique) : concerne l'apprentissage supervisé, c'est-à-dire qu'il nécessite des données labellisées (fraude ou non). L'idée est que, dans un cas qui arrive souvent où dans nos labels il y a peu de données frauduleuses, alors l'apprentissage est peu efficace car il compare souvent des données non frauduleuses entre elles et les cas de fraude sont donc rares, donc plus enrichissants. Ainsi le but est de rééquilibrer les proportions artificiellement. Pour la détection de fraude, on a souvent moins de 0.1 \% des données qui sont frauduleuses. L'idée est de plutôt s'approcher d'un ratio 99 \% - 1\% ou 95 \% - 5\%. Pour cela, on prend une paire de données frauduleuses et on ajoute à notre base de données une donnée frauduleuse qui se trouve à leur milieu dans le plan. On peut également choisir un barycentre différent ou le prendre de manière aléatoire. L'idée étant que notre nouveau point est proche de données frauduleuses, il est donc très suspect d'être frauduleux. \\
+\item Tomek Links : concerne également l'apprentissage supervisé mais agit à l'inverse de SMOTE pour supprimer quelques points du plan pour optimiser l'apprentissage. Dans un cas comme le nôtre, où il y a une dissymétrie brutale entre le nombre de labels fraude et non fraude, on cherche à préserver au mieux nos données les plus intéressantes qui sont celles ayant le label fraude. Ainsi on élimine du plan les points non fraude qui sont trop proches des points fraude. On dit qu'une paire de points du plan forme un Tomek Link si chacun est le plus proche voisin de l'autre. Si on a une paire fraude-non fraude qui forme un Tomek Link, on supprime le point non fraude. La surreprésentation des points non fraude fait que la perte n'est pas significative tandis qu'on protège l'information contenue dans les labels fraude. On peut ensuite tout à fait itérer ce procédé.
 
-\item  Tomek Links : concerne également l'apprentissage supervisé mais agit à l'inverse de SMOTE pour supprimer quelques points du plan pour optimiser l'apprentissage. Dans un cas comme le nôtre, où il y a une dissymétrie brutale entre le nombre de labels fraude et non fraude, on cherche à préserver au mieux nos données les plus intéressantes qui sont celles ayant le label fraude. Ainsi on élimine du plan les points non fraude qui sont trop proches des points fraude. On dit qu'une paire de points du plan forme un Tomek Link si chacun est le plus proche voisin de l'autre. Si on a une paire fraude-non fraude qui forme un Tomek Link, on supprime le point non fraude. La surreprésentation des points non fraude fait que la perte n'est pas significative tandis qu'on protège l'information contenue dans les labels fraude. On peut ensuite tout à fait itérer ce procédé. \\
+\item PCA (Principal Component Analysis) : cet algorithme réduit le nombre de paramètres, c'est-à-dire la dimension du plan, et bascule dans un nouveau système de coordonnées pour optimiser l'accessibilité à l'information de la base de données. La trentaine de paramètres initiaux est superflue. On ne veut garder que les éléments les plus intéressants pour notre apprentissage et on dispose d'un critère simple de sélection. On calcule la matrice de covariance de nos paramètres. Puis on sélectionne le sous-espace propre associé aux plus grandes valeurs propres (plus grandes variances, donc avec le moins de redondance), ce qui est immédiat à faire après diagonalisation. Les vecteurs propres associés que nous prenons pour nouveaux paramètres sont orthonormés, ce qui garantit l'indépendance et la singularité des informations qu'on peut y exploiter.
 
-\item PCA (Principal Component Analysis) : cet algorithme réduit le nombre de paramètres, c'est-à-dire la dimension du plan, et bascule dans un nouveau système de coordonnées pour optimiser l'accessibilité à l'information de la base de données. La trentaine de paramètres initiaux est superflue. On ne veut garder que les éléments les plus intéressants pour notre apprentissage et on dispose d'un critère simple de sélection. On calcule la matrice de covariance de nos paramètres. Puis on sélectionne le sous-espace propre associé aux plus grandes valeurs propres (plus grandes variances, donc avec le moins de redondance), ce qui est immédiat à faire après diagonalisation. Les vecteurs propres associés que nous prenons pour nouveaux paramètres sont orthonormés, ce qui garantit l'indépendance et la singularité des informations qu'on peut y exploiter. \\
-
-\item RFE (Recursive Feature Elimination) : cet algorithme tout comme le précédent vise à réduire le nombre de paramètres. On applique un algorithme de machine learning sur notre jeu de données pour faire notre apprentissage (par exemple l'arbre de décision) puis on sélectionne le paramètre ayant un pouvoir de décision le plus faible, c'est-à-dire celui qui est le moins retenu quand on décide de la nature (fraude ou non) d'un nouveau point. Ce paramètre est ensuite éliminé et on recommence notre apprentissage de zéro. L'idée est d'itérer ce procédé pour finir avec un nombre restreint de paramètres (environ une dizaine). \\
-
-
+\item RFE (Recursive Feature Elimination) : cet algorithme tout comme le précédent vise à réduire le nombre de paramètres. On applique un algorithme de machine learning sur notre jeu de données pour faire notre apprentissage (par exemple l'arbre de décision) puis on sélectionne le paramètre ayant un pouvoir de décision le plus faible, c'est-à-dire celui qui est le moins retenu quand on décide de la nature (fraude ou non) d'un nouveau point. Ce paramètre est ensuite éliminé et on recommence notre apprentissage de zéro. L'idée est d'itérer ce procédé pour finir avec un nombre restreint de paramètres (environ une dizaine).
 \end{itemize}
 
-\textbf{Ordre de la pipeline preprocessing} : l'ordre dans lequel on applique les algorithmes a son importance, ils ont été présentés dans l'ordre de la pipeline, voici pourquoi :\\
+\textbf{Ordre de la pipeline preprocessing} : l'ordre dans lequel on applique les algorithmes a son importance, ils ont été présentés dans l'ordre de la pipeline, voici pourquoi :
 
 \begin{itemize}
+\item SMOTE puis Tomek Links. Le SMOTE crée des données synthétiques entre les points existants. Le problème, c'est qu'il crée souvent des points bruités qui empiètent sur la classe majoritaire. En passant les Tomek Links après, on supprime les points qui sont trop proches les uns des autres entre les deux classes. Cela nettoie la frontière de décision que le SMOTE a rendue floue.
 
-\item SMOTE puis Tomek Links. Le SMOTE crée des données synthétiques entre les points existants. Le problème, c'est qu'il crée souvent des points bruités qui empiètent sur la classe majoritaire. En passant les Tomek Links après, on supprime les points qui sont trop proches les uns des autres entre les deux classes. Cela nettoie la frontière de décision que le SMOTE a rendue floue.\\
+\item PCA ensuite. La PCA cherche à maximiser la variance. Si on fait la PCA avant de rééquilibrer les classes, elle sera totalement biaisée par la classe majoritaire. En faisant la PCA après le rééquilibrage et le nettoyage, on s'assure que les composantes principales représentent bien la structure des deux classes de manière équitable.
 
-\item PCA ensuite. La PCA cherche à maximiser la variance. Si on fait la PCA avant de rééquilibrer les classes, elle sera totalement biaisée par la classe majoritaire. En faisant la PCA après le rééquilibrage et le nettoyage, on s'assure que les composantes principales représentent bien la structure des deux classes de manière équitable.\\
-
-\item RFE après PCA. RFE est très coûteux car il nécessite d'entraîner l'algorithme à chaque fois. Ainsi on l'utilise pour affiner. Le seul bémol d'utiliser RFE après PCA, c'est qu'on perd l'interprétation heuristique qu'on peut faire sur l'importance d'un paramètre : l'œil humain ne peut plus lire des explications "naturelles". \\
-
+\item RFE après PCA. RFE est très coûteux car il nécessite d'entraîner l'algorithme à chaque fois. Ainsi on l'utilise pour affiner. Le seul bémol d'utiliser RFE après PCA, c'est qu'on perd l'interprétation heuristique qu'on peut faire sur l'importance d'un paramètre : l'œil humain ne peut plus lire des explications "naturelles".
 \end{itemize}
 
-Bien que la nécessité de faire du Preprocessing n'est plus à démontrer, il reste encore plusieurs indéterminations. Quels algorithmes faut-il mettre dans la pipeline ? Faut-il tous les prendre ou seulement certains parmi les 4 ? Ensuite, pour chaque algorithme gardé, il faut décider à quelle intensité on l'utilise en choisissant les paramètres comme le nombre de données frauduleuses à rajouter via SMOTE par exemple. \\
+Bien que la nécessité de faire du Preprocessing n'est plus à démontrer, il reste encore plusieurs indéterminations. Quels algorithmes faut-il mettre dans la pipeline ? Faut-il tous les prendre ou seulement certains parmi les 4 ? Ensuite, pour chaque algorithme gardé, il faut décider à quelle intensité on l'utilise en choisissant les paramètres comme le nombre de données frauduleuses à rajouter via SMOTE par exemple. 
 
 Enfin il est également possible de rendre ces algorithmes quantiques (par exemple QSMOTE \cite{SMOTE2025}), c'est-à-dire agissant sur les vecteurs dans l'espace des états. Ou bien nous les utilisons pour optimiser notre base de données avant l'encodage quantique des vecteurs, ou bien nous les utilisons après l'encodage quantique, sur les vecteurs de notre FeatureMap. Le prétraitement post-mapping permet d'opérer directement sur la structure topologique de l'Espace de Hilbert, facilitant l'extraction de corrélations quantiques complexes qui resteraient cachées dans l'espace euclidien originel. 
 
-
-\section{Clustering}\label{sec:clustering}
+\section{Algorithmes non supervisés}\label{sec:clustering}
 
 \subsection{Clustering classique}
 
@@ -152,7 +146,7 @@ L'estimation effective de $\mathcal{F}_{ic}$ sur matériel quantique repose sur 
 \]
 d'où l'estimateur sans biais $\widehat{\mathcal{F}}_{ic} = 2\hat{p}_0 - 1$, où $\hat{p}_0$ est la fréquence empirique observée sur $P$ répétitions. L'erreur quadratique de l'estimation décroît en $\mathcal{O}(1/P)$.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \begin{quantikz}[column sep=0.6cm, row sep={0.8cm,between origins}]
 \lstick{$\ket{0}$} & \gate{H} & \ctrl{1} & \gate{H} & \meter{} \\
@@ -188,7 +182,7 @@ L'algorithme complet assemble les ingrédients précédents en une boucle classi
     \item \textbf{Assignation finale.} Pour chaque point $i$, retourner le cluster $c_i = \arg\max_{c}\, \mathcal{F}_{ic}$.
 \end{enumerate}
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \begin{tikzpicture}[
     node distance=0.9cm and 1.2cm,
@@ -239,7 +233,7 @@ Le numérateur compte les paires de points regroupées à l'identique dans les d
 
 Nous avons implémenté l'algorithme VQC décrit plus haut en \emph{Qiskit}. Le jeu de données synthétique est constitué de trois \emph{blobs} gaussiens dans $\mathbb{R}^3$, chacun de cardinalité $20$ (soit $N = 60$ points à partitionner en $k = 3$ clusters). Nous avons ensuite exécuté la boucle hybride décrite précédemment pendant $30$ itérations de l'optimiseur, avec l'hyperparamètre $\lambda = 10$.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.85\linewidth]{.png/VQC_first_results.png}
 \caption{Résultats de la première exécution du clustering variationnel quantique sur trois blobs gaussiens dans $\mathbb{R}^3$ ($N = 60$, $k = 3$, $\lambda = 10$, $30$ itérations).}
@@ -441,13 +435,13 @@ Avant d'aborder sa variante quantique, il est indispensable de poser le cadre ma
 
 \subsubsection*{Le problème primal et la marge souple}
 
-Mathématiquement, maximiser cette marge revient à minimiser la norme du vecteur normal à l'hyperplan, $\|\vec{w}\|$. Or, dans le cas de données réelles (et a fortiori dans la détection de fraude), les classes se chevauchent souvent à cause du bruit. Il est donc impossible de tracer une frontière parfaite. Pour y remédier, nous introduisons des variables réelles $\xi_i \geq 0$  qui autorisent certaines erreurs de classification moyennant une pénalité. 
+Mathématiquement, maximiser cette marge revient à minimiser la norme du vecteur normal à l'hyperplan, $\|\vec{w}\|$. Or, dans le cas de données réelles (et a fortiori dans la détection de fraude), les classes se chevauchent souvent à cause du bruit. Il est donc impossible de tracer une frontière parfaite. Pour y remédier, nous introduisons des variables réelles $\xi_i \geq 0$ qui autorisent certaines erreurs de classification moyennant une pénalité. 
 
 Le problème d'optimisation, dit « primal », s'écrit alors :
 \[
 \min_{\vec{w}, b, \vec{\xi}} \;\frac{1}{2} \|\vec{w}\|^2 + C \sum_{i=1}^{N} \xi_i
 \]
-sous les contraintes $y_i(\vec{w} \cdot \vec{x}_i + b) \geq 1 - \xi_i$. Le paramètre de régularisation $C$ contrôle le compromis entre la largeur de la marge (généralisation) et la pénalisation des erreurs sur le jeu d'entraînement. $y_i \in$ {$-1, 1$} est le label de du point $x_i$. $y_i(\vec{w} \cdot \vec{x}_i + b)$ est censé être supérieur ou égal à $1$, ainsi $\xi_i$ est la variable de pénalisation de cette contrainte qu'on se permet d'assouplir. 
+sous les contraintes $y_i(\vec{w} \cdot \vec{x}_i + b) \geq 1 - \xi_i$. Le paramètre de régularisation $C$ contrôle le compromis entre la largeur de la marge (généralisation) et la pénalisation des erreurs sur le jeu d'entraînement. $y_i \in \{-1, 1\}$ est le label du point $x_i$. $y_i(\vec{w} \cdot \vec{x}_i + b)$ est censé être supérieur ou égal à $1$, ainsi $\xi_i$ est la variable de pénalisation de cette contrainte qu'on se permet d'assouplir. 
 
 \subsubsection*{Passage au problème dual}
 
@@ -462,23 +456,23 @@ sous les contraintes $0 \leq \alpha_i \leq C$ et $\sum_{i} \alpha_i y_i = 0$.
 Ce problème présente deux propriétés fondamentales pour la suite de notre architecture :
 \begin{enumerate}
     \item \textbf{Parcimonie des solutions :} La majorité des multiplicateurs $\alpha_i$ s'annulent. Seuls les points d'entraînement situés sur la bordure de la marge ou du mauvais côté auront un $\alpha_i > 0$. Ces points critiques sont appelés les \emph{vecteurs de support}. La frontière de décision finale ne dépend plus que d'eux.
-    \item \textbf{Dépendance exclusive au produit scalaires :} Les vecteurs de données $\vec{x}$ n'apparaissent dans la fonction à optimiser que sous la forme de produits scalaires $(\vec{x}_i \cdot \vec{x}_j)$, ce qui nous permet d'utiliser l'astuce du noyau ou kernel trick en anglais
+    \item \textbf{Dépendance exclusive au produit scalaire :} Les vecteurs de données $\vec{x}$ n'apparaissent dans la fonction à optimiser que sous la forme de produits scalaires $(\vec{x}_i \cdot \vec{x}_j)$, ce qui nous permet d'utiliser l'astuce du noyau ou \emph{kernel trick} en anglais.
 \end{enumerate}
 
 \subsubsection*{Le Kernel Trick (Astuce du noyau)}
 
-Si il est trop optimiste de pouvoir  tracer une frontière rectiligne pertinente dans l'espace de départ qui est de faible dimension, nous pouvons transformer nos données via une fonction non linéaire $\phi : \mathbb{R}^d \rightarrow \mathcal{F}$, où $\mathcal{F}$ est un espace de bien plus grande dimension. 
+S'il est trop optimiste de pouvoir tracer une frontière rectiligne pertinente dans l'espace de départ qui est de faible dimension, nous pouvons transformer nos données via une fonction non linéaire $\phi : \mathbb{R}^d \rightarrow \mathcal{F}$, où $\mathcal{F}$ est un espace de bien plus grande dimension. 
 
 Plutôt que de calculer explicitement les lourdes coordonnées de $\phi(\vec{x}_i)$ — ce qui serait coûteux voire impossible si $\mathcal{F}$ est de dimension infinie —, la littérature classique \cite{boser1992kernel} souligne que l'algorithme dual n'a besoin que du produit scalaire dans ce nouvel espace. Il suffit alors de définir une fonction noyau $K$ telle que :
 \[
 K(\vec{x}_i, \vec{x}_j) \;=\; \phi(\vec{x}_i) \cdot \phi(\vec{x}_j)
 \]
-On remplace simplement le terme $(\vec{x}_i \cdot \vec{x}_j)$ par $K(\vec{x}_i, \vec{x}_j)$ dans le problème dual. L'algorithme se comporte alors comme si nous avions optimisé un hyperplan dans un espace très complexe celui où vivent les points $\phi(\vec{x}_i)$ , tout en conservant une complexité de calcul parfaitement maîtrisée. C'est précisément cette matrice des similarités $K$ (matrice de Gram) que l'ordinateur quantique va se charger de calculer pour nous dans l'approche hybride.
+On remplace simplement le terme $(\vec{x}_i \cdot \vec{x}_j)$ par $K(\vec{x}_i, \vec{x}_j)$ dans le problème dual. L'algorithme se comporte alors comme si nous avions optimisé un hyperplan dans un espace très complexe, celui où vivent les points $\phi(\vec{x}_i)$, tout en conservant une complexité de calcul parfaitement maîtrisée. C'est précisément cette matrice des similarités $K$ (matrice de Gram) que l'ordinateur quantique va se charger de calculer pour nous dans l'approche hybride.
 
 \subsection{Quantum One-Class Support Vector Machine (Q-OCSVM)}
 \label{subsec:q-ocsvm}
 
-Si le clustering variationnel vise à regrouper les données en plusieurs catégories, il est souvent plus naturel, dans le contexte de la fraude bancaire, de ne chercher qu'à modéliser ce qui est « normal ». La fraude étant par nature rare et multiforme, il est difficile d'en faire un cluster à part entière. Le \emph{Quantum One-Class SVM} (Q-OCSVM) répond exactement à cette logique, en adaptant au monde quantique le concept d'estimation de support \cite{scholkopf2001ocsvm} : au lieu de partitionner l'espace, nous cherchons à tracer une frontière la plus ajustée possible autour des transactions légitimes. Le problème d'optimisation primal s'écrit ici :
+Si le clustering variationnel vise à regrouper les données en plusieurs catégories, il est souvent plus naturel, dans le contexte de la fraude bancaire, de ne chercher qu'à modéliser ce qui est « normal ». La fraude étant par nature rare et multiforme, il est difficile d'en faire un cluster à part entière. Le \emph{Quantum One-Class SVM} (Q-OCSVM) répond exactement à cette logique, en adaptant au monde quantique le concept d'estimation de support \cite{scholkopf2001ocsvm} : au lieu de partitionner l'espace, nous cherchons à tracer une frontière la plus ajustée possible autour des transactions légitimes. Le problème d'optimisation primal s'écrit alors :
 
 \begin{equation}
 \begin{aligned}
@@ -518,12 +512,13 @@ D'après la littérature d'apprentissage quantique à base de noyaux \cite{schul
 \]
 Si les deux transactions sont identiques ($\vec{x}_i = \vec{x}_j$), l'opération globale équivaut à l'identité, et le registre retourne exactement dans l'état $\ket{0}^{\otimes n}$. Si elles diffèrent, la probabilité de mesurer l'état de base diminue. Ainsi, en mesurant simplement la fréquence d'apparition de la chaîne de bits $00\dots0$, nous obtenons une estimation directe de notre noyau quantique.
 
-\begin{figure}[h]
+\begin{figure}[H]
 \centering
-\usetikzlibrary{babel}
+\shorthandoff{:}
 \begin{quantikz}
 \lstick{$\ket{0}^{\otimes n}$} & \gate{U(\vec{x}_i)} & \gate{U^\dagger(\vec{x}_j)} & \meter{}
 \end{quantikz}
+\shorthandon{:}
 \caption{Évaluation de la similarité entre deux transactions par la méthode d'inversion. Le registre est préparé selon les caractéristiques du point $\vec{x}_i$, puis subit la transformation inverse paramétrée par $\vec{x}_j$. La mesure de l'état fondamental $\ket{0\dots0}$ nous donne directement la valeur du noyau $K_Q(\vec{x}_i, \vec{x}_j)$.}
 \label{fig:compute-uncompute}
 \end{figure}
@@ -532,7 +527,7 @@ Si les deux transactions sont identiques ($\vec{x}_i = \vec{x}_j$), l'opération
 
 Une fois que le circuit quantique a calculé les similarités pour toutes les paires de transactions de notre jeu d'entraînement, nous obtenons une matrice dense, la matrice de Gram. Celle-ci est transmise à un optimiseur classique qui va chercher à isoler les données en ajustant un paramètre $\nu$ qui est inversement proportionnel au paramètre de pénalité $C$ indiqué dans l'équation d'optimisation du SVM dans la section précédente (et qui représente concrètement la proportion de faux positifs que la banque est prête à tolérer).
 
-Le principal verrou de cette méthode, que nous avons dû affronter lors des tests sur les données de la BNP, est sa complexité quadratique. Pour $N$ transactions d'entraînement, il faut exécuter $N(N-1)/2$ circuits quantiques, et ce, pour plusieurs milliers de batchs à chaque fois afin d'avoir une estimation statistique fiable. Sur un jeu de données bancaire massif, le calcul complet de la matrice devient vite irréalisable en un temps raisonnable. C'est pourquoi nous avons dû accepter l'idée de ne conserver qu'un sous échantillon lors des implémentations de nos algorithmes sur le dataset fourni par la BNP. 
+Le principal verrou de cette méthode, que nous avons dû affronter lors des tests sur les données de la BNP, est sa complexité quadratique. Pour $N$ transactions d'entraînement, il faut exécuter $N(N-1)/2$ circuits quantiques, et ce, pour plusieurs milliers de batchs à chaque fois afin d'avoir une estimation statistique fiable. Sur un jeu de données bancaire massif, le calcul complet de la matrice devient vite irréalisable en un temps raisonnable. C'est pourquoi nous avons dû accepter l'idée de ne conserver qu'un sous-échantillon lors des implémentations de nos algorithmes sur le dataset fourni par la BNP. 
 
 \subsubsection*{Algorithme complet}
 
@@ -561,7 +556,6 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
 
 \section{Réseaux à couches}
 
-
 \section{Assemblage d'une pipeline}
 
 \subsection{Architecture modulaire}
@@ -572,16 +566,13 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
 
 Comment évaluer notre modèle ? Dans cette partie nous testons notre pipeline en testant 4 modèles différents. Dans un second temps nous évaluons le troisième algorithme, celui de notre pipeline sur le jeu de données de la BNP. 
 
-
-
-
 \subsection{Comparaison de 4 algorithmes sur un dataset tiers}
 
 \begin{enumerate}
-    \item Algorithme classique superivsé : Preprocessing + Random Forest (ou Tancrède)
-    \item Algorithme quantique non superivsé : Q-OCSVM
+    \item Algorithme classique supervisé : Preprocessing + Random Forest (ou Tancrède)
+    \item Algorithme quantique non supervisé : Q-OCSVM
     \item Algorithme hybride autosupervisé : Q-OCSVM + Random Forest 
-    \item Algorithme quantique superivsé : Preprocessing + Q-SVM
+    \item Algorithme quantique supervisé : Preprocessing + Q-SVM
 \end{enumerate}
 Voici les résultats sur le dataset : 
 
@@ -599,7 +590,6 @@ Voici le coefficient de silhouette que nous avons obtenu sur un échantillon de 
 
 Ensuite nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme. Nous avons inspecté leurs features et il est aisé d'observer que cette échantillon est anormal dans une certaine mesure. Voici quelques exemples qui étaillent notre propos :
 
-
 \section{Difficultés et critique}
 
 \subsection{Limites matérielles}
@@ -613,9 +603,6 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 \subsection{Bilan}
 
 \subsection{Idées futures}
-
-
-
 
 \begin{thebibliography}{99}
 
@@ -650,7 +637,7 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 
 \bibitem{abbou2025vqc} F.~M. Abbou, M.~Bouhadda, L.~Bouanane, M.~Kettani, F.~Abdi, A.~Abid, \textit{Comprehensive Analysis of VQC for Financial Fraud Detection: A Comparative Study of Quantum Encoding Techniques and Architectural Optimizations}, arXiv:2509.25245, septembre 2025.
 
-\bibitem{revolut_kaggle} \textit{Revolut Bank Transactions Fraud Detection Dataset}, jeu de données public, Kaggle. \texttt{[URL et auteur à compléter]}.
+\bibitem{revolut_kaggle} \textit{Revolut Bank Transactions Fraud Detection Dataset}, jeu de données public, Kaggle. \texttt{https://www.archambault.ca/livres/5-ans-de-r}%C3%A9flexions-journal-%C3%A0-compl%C3%A9ter-nul-besoin-d'%C3%AAtre-%C3%A9crivain-pour-faire-de-sa-vie-un-roman-n-%C3%A9d/collectif/9782501097840/?id=1641238}.
 
 \bibitem{cortes1995svm} C.~Cortes, V.~Vapnik, \textit{Support-vector networks}, Machine Learning, vol.~20, pp.~273--297, 1995.
 
