@@ -81,6 +81,34 @@ Nous avons travaillé sur trois jeux de données complémentaires.
 
 \section{Données de la BNP}\label{sec:bnp}
 
+Dans le cadre de notre partenariat avec BNP Paribas, nous exploitons un jeu de données transactionnelles
+issu des activités de marché. Ce dataset brut recense un historique de 500 0000 transactions financières (trades)
+caractérisées par des dimensions temporelles, financières et structurelles. Il était essentiel d’assurer un pré
+traitement (preprocessing) des données afin de les rendre exploitable. L’objectif primordial du préprocessing
+était la réduction de la dimensionnalité afin de ne soumettre aux algorithmes de clustering que les données
+strictement nécessaires à la caractérisation du risque. En effet, en amont du traitement, pour chacun des trades
+nous disposions de près de 50 données. L’ampleur de notre jeu de données était telle que les algorithmes de
+clustering allaient être inefficaces.
+Les algorithmes de regroupement calculant des distances mathématiques, la présence de bruit (données in
+utiles) dilue la pertinence des résultats. Notre démarche a donc consisté à isoler exclusivement les attributs
+comportementaux (montants, délais, type de produit) et à éliminer systématiquement les données administra
+tives ou les identifiants techniques, qui, bien qu’utiles à la gestion bancaire, constituent des "polluants" pour la
+détection statistique d’anomalies.
+La phase de preprocessing a mis en lumière la complexité des données brutes :
+Haute cardinalité et Bruit : Une prépondérance de colonnes à identifiants uniques (Deal ID, Trade Ref) qui
+n’apportent aucune information structurelle pour un modèle.
+L’hétérogénéité des formats : Des incohérences dans les saisies manuelles (ex : colonne DEAL DIRECTION
+mélangeant "BUY", "B", "0", etc.) nécessitant une normalisation. Il était primordiale d’uniformiser les données
+avant de les utilsier
+Écarts d’échelle : La coexistence de montants en millions d’euros avec des variables binaires, risquant de
+biaiser le calcul des distances.
+Pour garantir la robustesse du modèle, un pipeline de préprocessing rigoureux a été mis en œuvre. Nous avons
+procédé à un nettoyage sélectif en éliminant les variables de bruit (IDs techniques) et les champs lacunaires. Une
+phase de Feature Engineering a permis de transformer les données brutes en indicateurs de risque pertinents
+(calcul du délai de saisie, extraction des heures et jours de semaine, durée de maturité). Enfin, les données
+catégorielles ont été standardisées puis encodées (One-Hot Encoding), et l’ensemble des variables numériques a
+été mis à l’échelle (Scaling) pour assurer une contribution équilibrée de chaque facteur dans la formation des
+clusters.
 
 \section{Techniques de preprocessing}
 
@@ -418,15 +446,7 @@ Transactions signalées & $15 / 200$ \\
 \label{tab:qcl-v3-results}
 \end{table}
 
-<<<<<<< HEAD
-\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du QSVM.
-
-
-
-
-=======
-\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM
->>>>>>> 610c7c94086f27e24572c8933e5219a773353c39
+\paragraph{Bilan.} Cette version atteint $F_1 = 0{,}80$, avec un rappel \emph{parfait} ($1{,}00$, soit $10/10$ fraudes détectées) pour $15$ transactions signalées sur $200$, et dépasse ainsi le $k$-means ($F_1 = 0{,}72$, rappel $0{,}90$). Ce gain est en grande partie imputable au \emph{trimming}, qui empêche les fraudes de contaminer l'entraînement, et à la préservation des similarités, qui donne au plongement une géométrie plus cohérente. Nous poursuivons maintenant avec l'examen du Q-OCSVM.
 
 \subsection{Rappels théoriques : SVM classique et astuce du noyau}
 \label{subsec:svm-classique}
@@ -582,7 +602,6 @@ L'implémentation de notre brique Q-OCSVM suit la séquence classique-quantique 
     \end{itemize}
 \end{enumerate}
 
-<<<<<<< HEAD
 \paragraph{Intuition derrière le score de décision.} La relation de stationnarité du dual donne
 \[
 \vec{w} = \sum_{i} \alpha_i\, \phi(\vec{x}_i).
@@ -593,8 +612,6 @@ f(\vec{z}) \;=\; \vec{w} \cdot \phi(\vec{z}) - \rho \;=\; \sum_{\text{sv}} \alph
 \]
 Si $f(\vec{z}) \geq 0$, la transaction est du côté « normal » de l'hyperplan (ressemblance suffisante aux vecteurs de support légitimes) ; si $f(\vec{z}) < 0$, elle est rejetée comme fraude.
 
-\section{Réseaux à couches}
-=======
 \section{Réseaux à de neurones}
 
 Les réseaux de neurones sont un cas particulier de réseaux à couches dans lequel une couche réalise typiquement une transformation affine suivie d’une non-linéarité :
@@ -712,9 +729,7 @@ Il convient de préciser que les GANs ont été à l'origine conçus pour des pr
 \label{fig:qgan-pipeline}
 \end{figure}
 
-\section{Réseux à couche}
-
->>>>>>> 610c7c94086f27e24572c8933e5219a773353c39
+\section{Réseaux à couches}
 \label{sec:cascade}
  
 \subsection{Motivation et positionnement dans la pipeline}
@@ -974,7 +989,79 @@ A noter que chaque $s_i$ et donc le coefficient de silhouette sont dans l'interv
 En prennant un sous echantillon de 5000 lignes du jeu de données de la BNP en en appliquant l'algorithme 3 nous obtenons un coefficient de silhouette de $0.046233$. L'algorithme a classé $150$ données comme étant suspectes $(3\%)$ . On remarque que le score de silhouette est bas mais c'était attendu parce que cette métrique favorise des groupes compacts et bien séparés dans l’espace géométrique, alors qu’en fraude les comportements suspects sont souvent diffus, hétérogènes et très minoritaires, donc naturellement proches du nuage principal. La création de cluster n'est pas la philosophie des algorithmes SVM, ce à quoi s'ajoute le faible taux de suspects à $3\%$ ce qui n'optimise pas notre algorithme pour cette métrique. Ainsi la petitesse du coefficient de silhouette n'est pas alarmante et ne remet pas en question le modèle.  
 
 
-Etant donné la faible validation apportée par le calcul du coefficient de silhouette nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme. Nous avons inspecté leurs features et il est aisé d'observer que cette échantillon est anormal dans une certaine mesure. Voici quelques exemples qui étaillent notre propos :
+Etant donné la faible validation apportée par le calcul du coefficient de silhouette nous avons décidé de regarder en détail ce que notre modèle nous indiquait comme trade jugé frauduleux. Nous avons pris au hasard 50 données indiquées comme potentiellement frauduleuses par notre algorithme et avons inspecté leurs features. 
+
+\section{Analyse des transactions suspectes détectées}
+
+En étudiant les trades qui ont été "flag", il apparaît que les alertes ne relèvent pas du hasard. Elles se regroupent au contraire en grandes familles d'anomalies, qui correspondent à des signaux classiques de fraude en finance de marché. Les principales catégories que nous retenons sont les suivantes :
+\begin{itemize}
+    \item les saisies nocturnes ou hors fuseau horaire ;
+    \item les durées produit aberrantes ;
+    \item les incohérences temporelles et les cas d'antidatage ;
+    \item les modifications par un tiers non autorisé ;
+    \item les montants extrêmes ;
+    \item les situations de \textit{cross-border} sans justification apparente.
+\end{itemize}
+
+Ces catégories permettent de relier les données des trades à des à des mécanismes de fraude plausibles. Cependant l'interprétation doit être prudente car une transaction anormale n'est pas nécessairement frauduleuse. Plusieurs facteurs peuvent expliquer un flag dont une simple erreur dans le jeu de données. Cependant, une transaction détectée comme anormale mérite une investigation prioritaire : c'était justement le cahier des charges demandé par M. Gios. 
+
+
+\subsection{Saisies nocturnes et/ou hors fuseau horaire}
+
+La première catégorie regroupe les transactions enregistrées à des horaires atypiques, en particulier lorsqu'elles semblent incompatibles avec le fuseau horaire du pays concerné. Dans un contexte de trading mondialisé et interconnecté, il est cohérent que  certaines équipes travaillent sur plusieurs places de marché et donc à des heures étonnantes. Néanmoins, une heure inhabituelle reste un signal de risque, car elle peut traduire une activité moins visible pour les équipes de contrôle ou un usage non standard des accès.
+
+L'exemple le plus marquant de notre corpus est un trade de \textit{Global Equities / Equity Derivatives} saisi par un utilisateur localisé en Inde, avec un score d'anomalie de 0.030, le plus élevé parmi les transactions suspectes. Le trade est horodaté à 01h53 UTC, avec un indicateur \textit{cross-border} actif. Cette combinaison est particulièrement sensible : l'opération est réalisée depuis une localisation différente de celle du portefeuille, à une heure qui ne correspond pas à une plage normale de surveillance du portefeuille concerné. Même si une explication opérationnelle reste théoriquement possible, un tel cas constitue un bon exemple de transaction qui doit être examinée en priorité. 
+
+
+Du point de vue de la fraude, ce type de pattern est compatible avec plusieurs scénarios : usage d'un accès depuis une autre zone géographique, délégation non déclarée de saisie, ou simple volonté d'intervenir à un moment où les contrôles sont moins immédiats. 
+
+
+
+\subsection{Durées produit aberrantes}
+
+La deuxième grande catégorie regroupe les transactions dont la durée de vie est très clairement non conventionnel. Plusieurs trades détectés présentent des maturités de plusieurs dizaines d'années, parfois supérieures à 25\,000 jours. Même en tenant compte de produits longs ou structurés, de telles valeurs sont très atypiques et constituent l'un des signaux les plus discriminants de notre analyse.
+
+Un cas particulièrement révélateur est celui de deux trades quasi identiques en \textit{Global Equities / Prime Services}, saisis à une minute d'intervalle, avec une durée de 26\,314 jours, soit environ 72 ans. La répétition quasi immédiate de deux opérations aux paramètres très proches, associée à une maturité aussi extrême, rend l'explication par une simple saisie manuelle peu convaincante. Ce genre de motif peut évoquer une automatisation inhabituelle, une duplication anormale, ou une manipulation volontaire des paramètres du produit. 
+
+Pour quelqu'un qui souhaite frauder, une durée aberrante sur un trade peut avoir plusieurs effets. Elle peut servir à rendre une transaction moins comparable au reste du flux, à décaler artificiellement l'horizon de contrôle, ou encore à masquer une exposition réelle dans une structure inhabituelle.
+
+
+
+\subsection{Incohérences temporelles et antidatage}
+
+La troisième famille d'anomalies concerne les incohérences sur les dates de transaction, d'entrée et de référence. Dans un contexte normal, un trade est saisi le jour même ou dans un délai très court. Lorsqu'on observe des écarts de plusieurs jours, semaines, voire mois, c'est suspect
+
+L'un des cas les plus frappants de notre échantillon concerne un trade de \textit{Global Macro / Developed Markets Rates} pour lequel la \texttt{TRADE DATE} est en février 2024 alors que l'\texttt{INPUT DATE} remonte à décembre 2022. Un tel écart, de l'ordre de quinze mois, est extrêmement difficile à expliquer dans un cadre normal. Ce cas peut être interprété comme un exemple typique d'antidatage ou de modification visant à fausser la lecture historique de l'opération. 
+
+
+Du point de vue des types de fraude, ces incohérences temporelles sont importantes car elles renvoient à des mécanismes classiques de \textit{late booking} ou de \textit{back-dating}. Un opérateur peut chercher à enregistrer un trade après coup, à corriger sa date pour modifier son impact sur le reporting, ou à repositionner artificiellement une transaction dans une période donnée. Là encore, l'algorithme n'apporte pas une preuve, mais il détecte précisément les cas où la chronologie semble incompatible avec une activité normale.
+
+\subsection{Modifications par un tiers non autorisé}
+
+Une autre catégorie centrale regroupe les transactions dont le dernier modificateur n'est pas l'utilisateur qui les a initialement créées. Dans un environnement contrôlé, cette situation peut parfois être légitime, par exemple lorsqu'un support corrige une erreur matérielle. Mais, dans une perspective de surveillance, il s'agit d'un critère particulièrement sensible, car il touche directement à la piste d'audit.
+
+Un exemple représentatif est celui d'un trade \textit{Global Credit / Credit Financing} initié depuis l'Inde, avec \textit{cross-border} actif, puis modifié par un autre utilisateur. 
+
+Ce type d'anomalie est particulièrement important dans le cadre du PSC, puisque noter but est d'insister explicitement sur l'intérêt de détecter des scénarios de collusion interne ou d'usurpation d'identité, qui restent difficiles à capturer avec des règles de contrôle classiques. 
+
+
+\subsection{Montants extrêmes}
+
+La cinquième grande catégorie concerne les transactions dont le montant est très éloigné des pratiques habituelles du desk, du produit ou du trader considéré. Un montant extrême est un indicateur essentiel car il peut signaler une prise de position excessive, un transfert de valeur inhabituel ou une tentative de masquer une exposition réelle.
+
+Dans les scénarios de fraude les plus classiques, les notionnels excessifs servent souvent à amplifier artificiellement une exposition, à compenser rapidement une perte, ou à transférer de la valeur vers une contrepartie donnée. 
+
+\subsection{Situations \textit{cross-border} sans justification apparente}
+
+Enfin,on peut relever des cas où la localisation du site de trading diffère de celle du portefeuille ou de l'entité de rattachement. Dans une banque internationale, ce phénomène peut exister pour des raisons organisationnelles légitimes. Mais sa répétition, ou sa combinaison avec d'autres anomalies, en fait un facteur aggravant clair.
+
+Un \textit{cross-border} pris seul n'est pas nécessairement frauduleux. En revanche, il complexifie la traçabilité, brouille les responsabilités et peut faciliter un contournement des circuits normaux de contrôle. Dans les scénarios de fraude interne, ce type d'écart géographique sert souvent de support à une dissimulation plus large.
+
+\subsection{Conclusion}
+Pour conclure, nos algorithmes nous ont permis d'isoler les transactions a priori frauduleuses, au moins douteuses. 
+Nous avons pu regrouper ces fraudes en  catégories qui permettent de faire correspondre l'intuition métier, les insights de M. Gios et la vérité des données.  
+
+Il nous semble important d'insister : une transaction détectée comme anomalie n'est pas automatiquement une fraude avérée. Le rôle de notre méthode est de prioriser les investigations et de faire remonter les cas les plus suspects. Dans le cadre du PSC, ce résultat est déjà très encourageant : il montre qu'une approche de détection d'anomalies permet bien de faire émerger des transactions compatibles avec des scénarios réalistes de fraude complexe. 
 
 \section{Difficultés et critique}
 
@@ -1038,9 +1125,8 @@ L'un des buts du projet fut de pouvoir évaluer notre modèle directement sur le
 
 \bibitem{ulb_creditcard} \textit{Credit Card Fraud Detection}, jeu de données public, Kaggle. \url{https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud}.
 
-<<<<<<< HEAD
 \bibitem{breast_cancer_kaggle} \textit{Breast Cancer Wisconsin (Diagnostic) Data Set}, jeu de données public, Kaggle. \url{https://www.kaggle.com/datasets/uciml/breast-cancer-wisconsin-data}.
-=======
+
 \bibitem{qlstm2025} R.~Ubale, S.~K.~K., S.~Deshpande, G.~T. Byrd, \textit{Toward Practical Quantum Machine Learning: A Novel Hybrid Quantum LSTM for Fraud Detection}, arXiv:2505.00137, avril 2025.
 
 \bibitem{abbou2025vqc} F.~M. Abbou, M.~Bouhadda, L.~Bouanane, M.~Kettani, F.~Abdi, A.~Abid, \textit{Comprehensive Analysis of VQC for Financial Fraud Detection: A Comparative Study of Quantum Encoding Techniques and Architectural Optimizations}, arXiv:2509.25245, septembre 2025.
@@ -1076,7 +1162,6 @@ P.~J.~Rousseeuw, \textit{Silhouettes: a Graphical Aid to the Interpretation and 
 
 \bibitem{Shahapure2020} 
 K.~R.~Shahapure, C.~Nicholas, \textit{Cluster Quality Analysis Using Silhouette Score}, IEEE 7th International Conference on Data Science and Advanced Analytics (DSAA), pp.~747--748, 2020. \url{https://doi.org/10.1109/DSAA49011.2020.00096}.
->>>>>>> 610c7c94086f27e24572c8933e5219a773353c39
 
 \end{thebibliography}
 
